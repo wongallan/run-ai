@@ -1,7 +1,62 @@
+# prek.toml
+# Install:  prek install --install-hooks
+# Run once: prek run -a
+
+# --- Fast, low-friction hygiene checks ---
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "v6.0.0"
 hooks = [
-  { id = "check-yaml" },
   { id = "end-of-file-fixer" },
+  { id = "trailing-whitespace" },
+  { id = "mixed-line-ending", args = ["--fix=lf"] },
+  { id = "check-merge-conflict" },
+  { id = "check-yaml" },
+  { id = "check-toml" },
+  { id = "check-added-large-files", args = ["--maxkb=1024"] },
 ]
+
+# --- Go formatting (local, no extra hook repos needed) ---
+[[repos]]
+repo = "local"
+hooks = [
+  # gofmt on staged .go files
+  { id = "gofmt", name = "gofmt", entry = "gofmt -w", language = "system", types = ["go"] },
+
+  # Optional: goimports (install it first: go install golang.org/x/tools/cmd/goimports@latest)
+  # { id = "goimports", name = "goimports", entry = "goimports -w", language = "system", types = ["go"] },
+]
+
+# --- Lint (usually heavier). I like running this on push, not every commit. ---
+[[repos]]
+repo = "https://github.com/golangci/golangci-lint"
+rev = "v2.9.0"
+hooks = [
+  { id = "golangci-lint", stages = ["push"] },
+  # Optional: verify your config file when it changes
+  { id = "golangci-lint-config-verify" },
+]
+
+# --- Tests on push (keeps commits snappy) ---
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "go-test", name = "go test ./...", entry = "go test ./...", language = "system", pass_filenames = false, stages = ["push"] },
+]
+
+# --- Secret scanning (high value). Gitleaks is the common “catch obvious secrets” default. ---
+[[repos]]
+repo = "https://github.com/gitleaks/gitleaks"
+rev = "v8.30.0"
+hooks = [
+  { id = "gitleaks", stages = ["commit", "push"] },
+]
+
+# Optional: TruffleHog (can be noisier / slower, but strong detectors & verification options)
+# [[repos]]
+# repo = "https://github.com/trufflesecurity/trufflehog"
+# rev = "v3.93.2"
+# hooks = [
+#   # You can tune args later (e.g., only-verified) depending on tolerance for false positives.
+#   { id = "trufflehog", stages = ["push"] },
+# ]
