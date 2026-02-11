@@ -830,6 +830,78 @@ func TestCopilotChatStreamToolCalls(t *testing.T) {
 	}
 }
 
+func TestCopilotChatRequestToolMessages(t *testing.T) {
+	var captured struct {
+		Messages []struct {
+			Role      string `json:"role"`
+			Content   string `json:"content"`
+			ToolCalls []struct {
+				ID       string `json:"id"`
+				Type     string `json:"type"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls,omitempty"`
+			ToolCallID string `json:"tool_call_id,omitempty"`
+		} `json:"messages"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &captured)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{{
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": "ok",
+				},
+				"finish_reason": "stop",
+			}},
+		})
+	}))
+	defer srv.Close()
+
+	cp := &copilotProvider{baseURL: srv.URL, token: "tok", model: "o4-mini"}
+	_, err := cp.Complete(context.Background(), Request{
+		Messages: []Message{
+			{Role: "user", Content: "hi"},
+			{
+				Role:    "assistant",
+				Content: "",
+				ToolCalls: []ToolCall{{
+					ID:        "call-1",
+					Name:      "terminal",
+					Arguments: `{"command":"dir"}`,
+				}},
+			},
+			{
+				Role:       "tool",
+				Content:    "[terminal result]\nok",
+				ToolCallID: "call-1",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("complete error: %v", err)
+	}
+
+	if len(captured.Messages) < 3 {
+		t.Fatalf("expected 3 messages, got %d", len(captured.Messages))
+	}
+	if len(captured.Messages[1].ToolCalls) != 1 {
+		t.Fatalf("expected tool_calls on assistant message, got %+v", captured.Messages[1].ToolCalls)
+	}
+	if captured.Messages[1].ToolCalls[0].Function.Name != "terminal" {
+		t.Fatalf("tool name = %q", captured.Messages[1].ToolCalls[0].Function.Name)
+	}
+	if captured.Messages[2].ToolCallID != "call-1" {
+		t.Fatalf("tool_call_id = %q", captured.Messages[2].ToolCallID)
+	}
+}
+
 // --- Copilot Responses API Complete test ---
 
 func TestCopilotResponsesComplete(t *testing.T) {

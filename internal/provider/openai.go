@@ -25,8 +25,9 @@ func (p *openAIProvider) Name() string { return "openai" }
 // --- Request/Response types ---
 
 type openAIInput struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string `json:"role"`
+	Content    string `json:"content"`
+	ToolCallID string `json:"tool_call_id,omitempty"`
 }
 
 type openAITool struct {
@@ -220,7 +221,7 @@ func (p *openAIProvider) readSSE(ctx context.Context, body io.Reader, ch chan<- 
 func (p *openAIProvider) buildRequest(req Request, stream bool) openAIRequest {
 	var input []openAIInput
 	for _, m := range req.Messages {
-		input = append(input, openAIInput{Role: m.Role, Content: m.Content})
+		input = append(input, openAIInput{Role: m.Role, Content: m.Content, ToolCallID: m.ToolCallID})
 	}
 
 	oaiReq := openAIRequest{

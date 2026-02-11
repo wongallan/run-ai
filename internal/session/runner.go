@@ -89,7 +89,11 @@ func Run(ctx context.Context, cfg Config) error {
 		if fullText != "" {
 			cfg.Sink.Emit(output.EventAI, fullText)
 		}
-		messages = append(messages, provider.Message{Role: "assistant", Content: fullText})
+		messages = append(messages, provider.Message{
+			Role:      "assistant",
+			Content:   fullText,
+			ToolCalls: toolCalls,
+		})
 
 		// Execute each tool call.
 		for _, tc := range toolCalls {
@@ -125,8 +129,9 @@ func Run(ctx context.Context, cfg Config) error {
 
 			// Feed tool result back into conversation.
 			messages = append(messages, provider.Message{
-				Role:    "tool",
-				Content: fmt.Sprintf("[%s result]\n%s", tc.Name, toolResult),
+				Role:       "tool",
+				Content:    fmt.Sprintf("[%s result]\n%s", tc.Name, toolResult),
+				ToolCallID: tc.ID,
 			})
 		}
 	}
@@ -232,6 +237,8 @@ func runTerminalCommand(command, workDir string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	command = normalizeWindowsCommand(command)
+
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.CommandContext(ctx, "cmd.exe", "/C", command)
@@ -250,4 +257,52 @@ func runTerminalCommand(command, workDir string) (string, error) {
 		return string(output), fmt.Errorf("command failed: %w", err)
 	}
 	return string(output), nil
+}
+
+func normalizeWindowsCommand(command string) string {
+	if runtime.GOOS != "windows" {
+		return command
+	}
+
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return command
+	}
+
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "ls") {
+		return command
+	}
+	if len(lower) > 2 {
+		next := lower[2]
+		if next != ' ' && next != '\t' {
+			return command
+		}
+	}
+
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 || strings.ToLower(fields[0]) != "ls" {
+		return command
+	}
+
+	showAll := false
+	var paths []string
+	for _, f := range fields[1:] {
+		if strings.HasPrefix(f, "-") {
+			if strings.Contains(f, "a") {
+				showAll = true
+			}
+			continue
+		}
+		paths = append(paths, f)
+	}
+
+	rewritten := "dir"
+	if showAll {
+		rewritten += " /a"
+	}
+	if len(paths) > 0 {
+		rewritten += " " + strings.Join(paths, " ")
+	}
+	return rewritten
 }

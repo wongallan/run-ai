@@ -70,8 +70,19 @@ func (p *copilotProvider) Stream(ctx context.Context, req Request) (<-chan Strea
 // =========================================================================
 
 type copilotChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string                `json:"role"`
+	Content    string                `json:"content"`
+	ToolCalls  []copilotChatToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string                `json:"tool_call_id,omitempty"`
+}
+
+type copilotChatToolCall struct {
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
 }
 
 type copilotChatTool struct {
@@ -302,10 +313,22 @@ func (p *copilotProvider) flushToolCalls(acc map[int]*chatToolAcc, ch chan<- Str
 func (p *copilotProvider) buildChatRequest(req Request, stream bool) copilotChatRequest {
 	var messages []copilotChatMessage
 	for _, m := range req.Messages {
-		messages = append(messages, copilotChatMessage{
+		msg := copilotChatMessage{
 			Role:    m.Role,
 			Content: m.Content,
-		})
+		}
+		if m.ToolCallID != "" {
+			msg.ToolCallID = m.ToolCallID
+		}
+		if len(m.ToolCalls) > 0 {
+			for _, tc := range m.ToolCalls {
+				call := copilotChatToolCall{ID: tc.ID, Type: "function"}
+				call.Function.Name = tc.Name
+				call.Function.Arguments = tc.Arguments
+				msg.ToolCalls = append(msg.ToolCalls, call)
+			}
+		}
+		messages = append(messages, msg)
 	}
 
 	chatReq := copilotChatRequest{
@@ -499,7 +522,7 @@ func (p *copilotProvider) readResponsesSSE(ctx context.Context, body io.Reader, 
 func (p *copilotProvider) buildResponsesRequest(req Request, stream bool) openAIRequest {
 	var input []openAIInput
 	for _, m := range req.Messages {
-		input = append(input, openAIInput{Role: m.Role, Content: m.Content})
+		input = append(input, openAIInput{Role: m.Role, Content: m.Content, ToolCallID: m.ToolCallID})
 	}
 
 	oaiReq := openAIRequest{

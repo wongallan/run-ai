@@ -100,6 +100,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - [ ] Green: runner streams AI text as it arrives and only prints final response in silent mode.
 - [ ] Red: terminal tool calls emit command + output events in order.
 - [ ] Green: terminal tool execution wired into runner with cross-platform shell handling.
+- [ ] Red: Windows terminal tool maps common Unix commands (e.g. `ls -la`) to native equivalents.
+- [ ] Green: normalize Windows terminal commands before execution.
 
 ### 5) Skills (Consumption-Only)
 
@@ -167,6 +169,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - [x] Green: CLI wired to session runner with provider resolution fallback.
 - [ ] Red: tool call loop executes terminal commands and returns results to the model.
 - [ ] Green: tool calls support terminal JSON args with command parsing and error handling.
+- [ ] Red: Copilot Chat tool results include `tool_call_id` and preceding assistant `tool_calls`.
+- [ ] Green: runner persists tool call metadata in conversation history.
 
 ### 12) Hardening and UX
 

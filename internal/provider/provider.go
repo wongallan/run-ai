@@ -19,8 +19,10 @@ import (
 
 // Message represents a single message in a conversation.
 type Message struct {
-	Role    string // "system", "user", "assistant", "tool"
-	Content string
+	Role       string // "system", "user", "assistant", "tool"
+	Content    string
+	ToolCalls  []ToolCall // For assistant tool call messages (chat APIs).
+	ToolCallID string     // For tool result messages (chat APIs).
 }
 
 // ToolCall represents a tool invocation requested by the provider.

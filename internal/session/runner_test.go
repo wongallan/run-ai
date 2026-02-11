@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -307,5 +309,28 @@ func TestExecuteToolCallTerminal(t *testing.T) {
 	}
 	if !strings.Contains(res, "hello") {
 		t.Fatalf("expected command output, got %q", res)
+	}
+}
+
+func TestExecuteToolCallTerminalWindowsLs(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows-only")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test-file.txt")
+	if err := os.WriteFile(path, []byte("ok"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	res, err := executeToolCall(provider.ToolCall{
+		Name:      "terminal",
+		Arguments: `{"command":"ls -la"}`,
+	}, Config{BaseDir: dir})
+	if err != nil {
+		t.Fatalf("executeToolCall: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(res), "test-file.txt") {
+		t.Fatalf("expected listing to include test-file.txt, got %q", res)
 	}
 }
