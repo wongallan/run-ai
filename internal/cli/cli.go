@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+	"unicode/utf8"
 
 	"run-ai/internal/agent"
 	"run-ai/internal/config"
@@ -19,13 +22,14 @@ var copilotSaveToken = provider.SaveCopilotToken
 
 // Parsed holds parsed CLI arguments.
 type Parsed struct {
-	Command   string   // "config", "skills", "" (prompt mode)
-	SubArgs   []string // sub-command arguments
-	Prompt    string   // user prompt (prompt mode)
-	AgentPath string   // --agent flag
-	Silent    bool     // -silent flag
-	Log       bool     // -log flag
-	ShowHelp  bool     // -h / --help / help
+	Command    string   // "config", "skills", "" (prompt mode)
+	SubArgs    []string // sub-command arguments
+	Prompt     string   // user prompt (prompt mode)
+	PromptPath string   // --prompt-file flag
+	AgentPath  string   // --agent flag
+	Silent     bool     // -silent flag
+	Log        bool     // -log flag
+	ShowHelp   bool     // -h / --help / help
 }
 
 // ParseArgs separates flags from positional arguments.
@@ -42,6 +46,11 @@ func ParseArgs(args []string) Parsed {
 			p.Silent = true
 		case "-log":
 			p.Log = true
+		case "--prompt-file":
+			if i+1 < len(args) {
+				i++
+				p.PromptPath = args[i]
+			}
 		case "--agent":
 			if i+1 < len(args) {
 				i++
@@ -50,6 +59,8 @@ func ParseArgs(args []string) Parsed {
 		default:
 			if strings.HasPrefix(args[i], "--agent=") {
 				p.AgentPath = strings.TrimPrefix(args[i], "--agent=")
+			} else if strings.HasPrefix(args[i], "--prompt-file=") {
+				p.PromptPath = strings.TrimPrefix(args[i], "--prompt-file=")
 			} else {
 				positional = append(positional, args[i])
 			}
@@ -98,7 +109,11 @@ func Run(args []string, stdout, stderr io.Writer, baseDir string) int {
 	case "copilot-login":
 		return runCopilotLogin(parsed.SubArgs, stdout, stderr, baseDir)
 	default:
-		if parsed.Prompt == "" {
+		if parsed.Prompt != "" && parsed.PromptPath != "" {
+			fmt.Fprintln(stderr, "prompt error: provide either a prompt string or --prompt-file, not both")
+			return 2
+		}
+		if parsed.Prompt == "" && parsed.PromptPath == "" {
 			writeUsage(stderr)
 			return 2
 		}
@@ -108,6 +123,15 @@ func Run(args []string, stdout, stderr io.Writer, baseDir string) int {
 
 // runPrompt handles the prompt command with output sink, optional agent, and logging.
 func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
+	if p.PromptPath != "" {
+		prompt, err := loadPromptFile(p.PromptPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "prompt error: %v\n", err)
+			return 1
+		}
+		p.Prompt = prompt
+	}
+
 	sink, err := output.NewSink(output.Options{
 		Silent:  p.Silent,
 		Log:     p.Log,
@@ -137,6 +161,9 @@ func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
 	headerArgs := map[string]string{}
 	if p.AgentPath != "" {
 		headerArgs["agent"] = p.AgentPath
+	}
+	if p.PromptPath != "" {
+		headerArgs["prompt-file"] = p.PromptPath
 	}
 	if p.Silent {
 		headerArgs["silent"] = "true"
@@ -313,9 +340,31 @@ func writeUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "Usage:")
 	fmt.Fprintln(writer, "  rai <prompt>")
 	fmt.Fprintln(writer, "  rai --agent <file> <prompt>")
+	fmt.Fprintln(writer, "  rai --prompt-file <file>")
 	fmt.Fprintln(writer, "  rai -silent <prompt>")
 	fmt.Fprintln(writer, "  rai -log <prompt>")
 	fmt.Fprintln(writer, "  rai config <key> <value>")
 	fmt.Fprintln(writer, "  rai skills list")
 	fmt.Fprintln(writer, "  rai copilot-login [domain]")
+}
+
+func loadPromptFile(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("prompt file path is empty")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("prompt file: %w", err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("prompt file %q is a directory", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("prompt file: %w", err)
+	}
+	if len(data) > 0 && (bytes.IndexByte(data, 0) >= 0 || !utf8.Valid(data)) {
+		return "", fmt.Errorf("prompt file %q is not valid UTF-8 text", path)
+	}
+	return strings.TrimRight(string(data), "\n"), nil
 }
