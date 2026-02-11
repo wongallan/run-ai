@@ -112,6 +112,7 @@ func Resolve(cfg map[string]string) (Provider, error) {
 	}
 
 	model := cfg["model"]
+	reasoningSummary := reasoningSummarySetting(cfg)
 
 	// Heuristic: detect provider from endpoint URL.
 	switch {
@@ -121,12 +122,12 @@ func Resolve(cfg map[string]string) (Provider, error) {
 		return newGoogleProvider(endpoint, apiKey, model, cfg)
 	default:
 		// Default to OpenAI-compatible (Responses API).
-		return newOpenAIProvider(endpoint, apiKey, model, cfg)
+		return newOpenAIProvider(endpoint, apiKey, model, reasoningSummary)
 	}
 }
 
 // newOpenAIProvider creates an OpenAI-compatible provider stub.
-func newOpenAIProvider(endpoint, apiKey, model string, cfg map[string]string) (Provider, error) {
+func newOpenAIProvider(endpoint, apiKey, model, reasoningSummary string) (Provider, error) {
 	if apiKey == "" {
 		return nil, ErrAuthRequired
 	}
@@ -134,9 +135,10 @@ func newOpenAIProvider(endpoint, apiKey, model string, cfg map[string]string) (P
 		return nil, ErrModelRequired
 	}
 	return &openAIProvider{
-		endpoint: endpoint,
-		apiKey:   apiKey,
-		model:    model,
+		endpoint:         endpoint,
+		apiKey:           apiKey,
+		model:            model,
+		reasoningSummary: reasoningSummary,
 	}, nil
 }
 
@@ -197,14 +199,39 @@ func newCopilotProvider(cfg map[string]string, providerID string) (Provider, err
 	if model == "" {
 		model = "gpt-5-mini" // default free Copilot model
 	}
+	reasoningSummary := reasoningSummarySetting(cfg)
 
 	baseURL := CopilotBaseURL(enterpriseURL)
 
 	return &copilotProvider{
-		baseURL: baseURL,
-		token:   token,
-		model:   model,
+		baseURL:          baseURL,
+		token:            token,
+		model:            model,
+		reasoningSummary: reasoningSummary,
 	}, nil
+}
+
+func reasoningSummarySetting(cfg map[string]string) string {
+	value := strings.TrimSpace(cfg["reasoning-summary"])
+	if value == "" {
+		value = strings.TrimSpace(cfg["reasoning_summary"])
+	}
+	if value == "" {
+		return "enabled"
+	}
+	if isFalsey(value) {
+		return "disabled"
+	}
+	return value
+}
+
+func isFalsey(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "0", "false", "off", "no", "disabled":
+		return true
+	default:
+		return false
+	}
 }
 
 // --- Shared streaming helper ---

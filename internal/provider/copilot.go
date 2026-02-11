@@ -17,10 +17,11 @@ import (
 // Enterprise).  It routes between the Chat API (/chat/completions) and the
 // Responses API (/responses) based on the model ID.
 type copilotProvider struct {
-	baseURL string // e.g. https://api.githubcopilot.com
-	token   string // GitHub OAuth access token
-	model   string
-	client  http.Client
+	baseURL          string // e.g. https://api.githubcopilot.com
+	token            string // GitHub OAuth access token
+	model            string
+	client           http.Client
+	reasoningSummary string
 }
 
 func (p *copilotProvider) Name() string { return "github-copilot" }
@@ -109,6 +110,7 @@ type copilotChatChoice struct {
 	Message struct {
 		Role      string `json:"role"`
 		Content   string `json:"content"`
+		Reasoning string `json:"reasoning_text"`
 		ToolCalls []struct {
 			ID       string `json:"id"`
 			Type     string `json:"type"`
@@ -243,6 +245,7 @@ func (p *copilotProvider) readChatSSE(ctx context.Context, body io.Reader, ch ch
 			Choices []struct {
 				Delta struct {
 					Content   string `json:"content"`
+					Reasoning string `json:"reasoning_text"`
 					ToolCalls []struct {
 						Index    int    `json:"index"`
 						ID       string `json:"id"`
@@ -266,6 +269,9 @@ func (p *copilotProvider) readChatSSE(ctx context.Context, body io.Reader, ch ch
 
 		if delta.Content != "" {
 			ch <- StreamEvent{Text: delta.Content}
+		}
+		if delta.Reasoning != "" {
+			ch <- StreamEvent{ReasoningSummary: delta.Reasoning}
 		}
 
 		for _, tc := range delta.ToolCalls {
@@ -362,6 +368,9 @@ func (p *copilotProvider) parseChatResponse(resp copilotChatResponse) Response {
 	}
 	choice := resp.Choices[0]
 	result.Content = choice.Message.Content
+	if choice.Message.Reasoning != "" {
+		result.ReasoningSummary = choice.Message.Reasoning
+	}
 	for _, tc := range choice.Message.ToolCalls {
 		result.ToolCalls = append(result.ToolCalls, ToolCall{
 			ID:        tc.ID,
@@ -476,14 +485,19 @@ func (p *copilotProvider) readResponsesSSE(ctx context.Context, body io.Reader, 
 		}
 
 		var event struct {
-			Type  string `json:"type"`
-			Delta string `json:"delta"`
-			Item  *struct {
+			Type     string          `json:"type"`
+			Delta    string          `json:"delta"`
+			Response *openAIResponse `json:"response,omitempty"`
+			Item     *struct {
 				Type      string `json:"type"`
 				ID        string `json:"id"`
 				Name      string `json:"name"`
 				Arguments string `json:"arguments"`
 				CallID    string `json:"call_id"`
+				Summary   []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"summary,omitempty"`
 			} `json:"item,omitempty"`
 		}
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
@@ -491,11 +505,11 @@ func (p *copilotProvider) readResponsesSSE(ctx context.Context, body io.Reader, 
 		}
 
 		switch event.Type {
-		case "response.output_text.delta":
+		case "response.output_text.delta", "response.text.delta":
 			if event.Delta != "" {
 				ch <- StreamEvent{Text: event.Delta}
 			}
-		case "response.reasoning_summary_text.delta":
+		case "response.reasoning_summary_text.delta", "response.reasoning.summary.delta":
 			if event.Delta != "" {
 				ch <- StreamEvent{ReasoningSummary: event.Delta}
 			}
@@ -507,6 +521,27 @@ func (p *copilotProvider) readResponsesSSE(ctx context.Context, body io.Reader, 
 					Arguments: event.Item.Arguments,
 				}}}
 			}
+		case "response.output_item.done":
+			if event.Item != nil && (event.Item.Type == "reasoning" || event.Item.Type == "reasoning_summary") {
+				var summary strings.Builder
+				for _, s := range event.Item.Summary {
+					if s.Type == "summary_text" || s.Type == "text" {
+						summary.WriteString(s.Text)
+					}
+				}
+				if summary.Len() > 0 {
+					ch <- StreamEvent{ReasoningSummary: summary.String()}
+				}
+			}
+		case "response.done":
+			if event.Response != nil {
+				parsed := p.parseResponsesOutput(*event.Response)
+				if parsed.ReasoningSummary != "" {
+					ch <- StreamEvent{ReasoningSummary: parsed.ReasoningSummary}
+				}
+			}
+			ch <- StreamEvent{Done: true}
+			return
 		case "response.completed":
 			ch <- StreamEvent{Done: true}
 			return
@@ -531,6 +566,12 @@ func (p *copilotProvider) buildResponsesRequest(req Request, stream bool) openAI
 		Stream:      stream,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,
+	}
+	if p.reasoningSummary != "" {
+		oaiReq.Reasoning = &openAIReasoning{Summary: p.reasoningSummary}
+		if p.reasoningSummary != "disabled" {
+			oaiReq.Include = []string{"reasoning.summary"}
+		}
 	}
 	if req.Model != "" {
 		oaiReq.Model = req.Model
@@ -559,7 +600,7 @@ func (p *copilotProvider) parseResponsesOutput(resp openAIResponse) Response {
 			}
 		case "reasoning", "reasoning_summary":
 			for _, s := range out.Summary {
-				if s.Type == "text" {
+				if s.Type == "summary_text" || s.Type == "text" {
 					result.ReasoningSummary += s.Text
 				}
 			}

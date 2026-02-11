@@ -14,10 +14,11 @@ import (
 // openAIProvider implements Provider for OpenAI-compatible APIs using the
 // Responses API (/v1/responses).
 type openAIProvider struct {
-	endpoint string
-	apiKey   string
-	model    string
-	client   http.Client
+	endpoint         string
+	apiKey           string
+	model            string
+	client           http.Client
+	reasoningSummary string
 }
 
 func (p *openAIProvider) Name() string { return "openai" }
@@ -38,12 +39,18 @@ type openAITool struct {
 }
 
 type openAIRequest struct {
-	Model       string        `json:"model"`
-	Input       []openAIInput `json:"input"`
-	Stream      bool          `json:"stream,omitempty"`
-	MaxTokens   int           `json:"max_output_tokens,omitempty"`
-	Temperature *float64      `json:"temperature,omitempty"`
-	Tools       []openAITool  `json:"tools,omitempty"`
+	Model       string           `json:"model"`
+	Input       []openAIInput    `json:"input"`
+	Stream      bool             `json:"stream,omitempty"`
+	MaxTokens   int              `json:"max_output_tokens,omitempty"`
+	Temperature *float64         `json:"temperature,omitempty"`
+	Reasoning   *openAIReasoning `json:"reasoning,omitempty"`
+	Include     []string         `json:"include,omitempty"`
+	Tools       []openAITool     `json:"tools,omitempty"`
+}
+
+type openAIReasoning struct {
+	Summary string `json:"summary,omitempty"`
 }
 
 type openAIResponseOutput struct {
@@ -171,14 +178,19 @@ func (p *openAIProvider) readSSE(ctx context.Context, body io.Reader, ch chan<- 
 		}
 
 		var event struct {
-			Type  string `json:"type"`
-			Delta string `json:"delta"`
-			Item  *struct {
+			Type     string          `json:"type"`
+			Delta    string          `json:"delta"`
+			Response *openAIResponse `json:"response,omitempty"`
+			Item     *struct {
 				Type      string `json:"type"`
 				ID        string `json:"id"`
 				Name      string `json:"name"`
 				Arguments string `json:"arguments"`
 				CallID    string `json:"call_id"`
+				Summary   []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"summary,omitempty"`
 			} `json:"item,omitempty"`
 		}
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
@@ -186,11 +198,11 @@ func (p *openAIProvider) readSSE(ctx context.Context, body io.Reader, ch chan<- 
 		}
 
 		switch event.Type {
-		case "response.output_text.delta":
+		case "response.output_text.delta", "response.text.delta":
 			if event.Delta != "" {
 				ch <- StreamEvent{Text: event.Delta}
 			}
-		case "response.reasoning_summary_text.delta":
+		case "response.reasoning_summary_text.delta", "response.reasoning.summary.delta":
 			if event.Delta != "" {
 				ch <- StreamEvent{ReasoningSummary: event.Delta}
 			}
@@ -202,6 +214,27 @@ func (p *openAIProvider) readSSE(ctx context.Context, body io.Reader, ch chan<- 
 					Arguments: event.Item.Arguments,
 				}}}
 			}
+		case "response.output_item.done":
+			if event.Item != nil && (event.Item.Type == "reasoning" || event.Item.Type == "reasoning_summary") {
+				var summary strings.Builder
+				for _, s := range event.Item.Summary {
+					if s.Type == "summary_text" || s.Type == "text" {
+						summary.WriteString(s.Text)
+					}
+				}
+				if summary.Len() > 0 {
+					ch <- StreamEvent{ReasoningSummary: summary.String()}
+				}
+			}
+		case "response.done":
+			if event.Response != nil {
+				parsed := p.parseResponse(*event.Response)
+				if parsed.ReasoningSummary != "" {
+					ch <- StreamEvent{ReasoningSummary: parsed.ReasoningSummary}
+				}
+			}
+			ch <- StreamEvent{Done: true}
+			return
 		case "response.completed":
 			ch <- StreamEvent{Done: true}
 			return
@@ -226,6 +259,12 @@ func (p *openAIProvider) buildRequest(req Request, stream bool) openAIRequest {
 		Stream:      stream,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,
+	}
+	if p.reasoningSummary != "" {
+		oaiReq.Reasoning = &openAIReasoning{Summary: p.reasoningSummary}
+		if p.reasoningSummary != "disabled" {
+			oaiReq.Include = []string{"reasoning.summary"}
+		}
 	}
 
 	if req.Model != "" {
@@ -261,7 +300,7 @@ func (p *openAIProvider) parseResponse(resp openAIResponse) Response {
 			}
 		case "reasoning", "reasoning_summary":
 			for _, s := range out.Summary {
-				if s.Type == "text" {
+				if s.Type == "summary_text" || s.Type == "text" {
 					result.ReasoningSummary += s.Text
 				}
 			}

@@ -90,6 +90,10 @@ func Run(ctx context.Context, cfg Config) error {
 			cfg.Sink.EndAIStream(fullText)
 		}
 
+		if reasoningSummary == "" {
+			reasoningSummary = inferReasoningSummary(fullText)
+		}
+
 		if fullText != "" && !(cfg.Sink.IsSilent() && len(toolCalls) == 0) {
 			cfg.Sink.EmitLog(output.EventAI, fullText)
 		}
@@ -192,6 +196,18 @@ func buildMessages(cfg Config) []provider.Message {
 
 	msgs = append(msgs, provider.Message{Role: "user", Content: cfg.UserPrompt})
 	return msgs
+}
+
+func inferReasoningSummary(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if strings.HasPrefix(lower, "work:") || strings.HasPrefix(lower, "reasoning:") || strings.HasPrefix(lower, "steps:") {
+			return strings.TrimSpace(strings.Join(lines[i:], "\n"))
+		}
+	}
+	return ""
 }
 
 func buildToolDefs(discovered []skills.Skill) []provider.ToolDef {
