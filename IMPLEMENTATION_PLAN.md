@@ -110,25 +110,30 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 6) Provider Core Abstraction
 
-- [ ] Red: provider selected by explicit config or endpoint heuristics.
-- [ ] Green: provider interface with streaming and non-streaming support.
+- [x] Red: provider selected by explicit config or endpoint heuristics.
+- [x] Green: provider interface with streaming and non-streaming support.
+- [x] Green: Resolve() function with heuristic-based provider selection.
+- [x] Green: CollectStream helper for consuming streaming channels.
+- [x] Green: Sentinel errors (ErrNoProvider, ErrAuthRequired, ErrModelRequired).
 
 ### 7) OpenAI-Compatible (Responses API)
 
-- [ ] Red: requests sent to /v1/responses with correct body fields.
-- [ ] Red: streaming events are mapped to output events.
-- [ ] Green: implement client with streaming and non-streaming handling.
+- [x] Red: requests sent to /v1/responses with correct body fields.
+- [x] Red: streaming events are mapped to output events.
+- [x] Green: implement client with streaming and non-streaming handling.
+- [x] Green: tool call support in requests and responses.
 
 ### 8) Anthropic (Messages API)
 
-- [ ] Red: requests sent to /v1/messages with correct headers and body.
-- [ ] Red: streaming events render in order.
-- [ ] Green: implement client.
+- [x] Red: requests sent to /v1/messages with correct headers and body.
+- [x] Red: streaming events render in order.
+- [x] Green: implement client with system message separation, anthropic-version header.
 
 ### 9) Google (Gemini)
 
-- [ ] Red: requests to generateContent with API key auth.
-- [ ] Green: implement client and streaming conversion.
+- [x] Red: requests to generateContent with API key auth.
+- [x] Green: implement client and streaming conversion (JSON array format).
+- [x] Green: role mapping (assistant → model), system instruction support.
 
 ### 10) GitHub Copilot Provider
 
