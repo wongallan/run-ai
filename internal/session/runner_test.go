@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -64,6 +65,37 @@ func TestRunBasicPrompt(t *testing.T) {
 
 	if !strings.Contains(buf.String(), "Hello from AI") {
 		t.Fatalf("expected 'Hello from AI' in output, got %q", buf.String())
+	}
+}
+
+func TestRunStreamsToConsole(t *testing.T) {
+	p := mockProvider(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, _ := w.(http.Flusher)
+		fmt.Fprintln(w, `data: {"type":"response.output_text.delta","delta":"Hello"}`)
+		flusher.Flush()
+		fmt.Fprintln(w, `data: {"type":"response.output_text.delta","delta":" world"}`)
+		flusher.Flush()
+		fmt.Fprintln(w, `data: {"type":"response.completed"}`)
+		flusher.Flush()
+	})
+
+	var buf bytes.Buffer
+	sink, _ := output.NewSink(output.Options{Console: &buf, Now: nowFunc()})
+
+	err := Run(context.Background(), Config{
+		Provider:   p,
+		Sink:       sink,
+		UserPrompt: "hello",
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	sink.Close()
+
+	out := buf.String()
+	if !strings.Contains(out, "[AI] Hello") || !strings.Contains(out, "[AI]  world") {
+		t.Fatalf("expected streamed AI output, got %q", out)
 	}
 }
 
@@ -257,5 +289,23 @@ func TestBuildMessagesNoSystem(t *testing.T) {
 	}
 	if msgs[0].Role != "user" {
 		t.Fatalf("expected user role, got %q", msgs[0].Role)
+	}
+}
+
+func TestExecuteToolCallTerminal(t *testing.T) {
+	cmd := "echo hello"
+	if runtime.GOOS == "windows" {
+		cmd = "echo hello"
+	}
+
+	res, err := executeToolCall(provider.ToolCall{
+		Name:      "terminal",
+		Arguments: fmt.Sprintf(`{"command":"%s"}`, cmd),
+	}, Config{BaseDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("executeToolCall: %v", err)
+	}
+	if !strings.Contains(res, "hello") {
+		t.Fatalf("expected command output, got %q", res)
 	}
 }

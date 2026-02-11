@@ -183,3 +183,10 @@ func (s *Sink) LogPath() string {
 	}
 	return s.logFile.Name()
 }
+
+// IsSilent reports whether the sink is configured for silent console output.
+func (s *Sink) IsSilent() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.silent
+}
