@@ -56,25 +56,42 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 
 		var fullText string
+		var reasoningSummary string
 		var toolCalls []provider.ToolCall
+		var streamingAI bool
 
 		for ev := range ch {
 			if ev.Error != nil {
+				if streamingAI {
+					cfg.Sink.EndAIStream(fullText)
+				}
 				cfg.Sink.Emit(output.EventERR, fmt.Sprintf("stream error: %v", ev.Error))
 				return ev.Error
 			}
 			if ev.Text != "" {
 				fullText += ev.Text
 				if !cfg.Sink.IsSilent() {
-					cfg.Sink.Emit(output.EventAI, ev.Text)
+					if !streamingAI {
+						cfg.Sink.BeginAIStream()
+						streamingAI = true
+					}
+					cfg.Sink.EmitAIChunk(ev.Text)
 				}
 			}
-			if ev.ReasoningSummary != "" && !cfg.Sink.IsSilent() {
-				cfg.Sink.Emit(output.EventAI, "reasoning: "+ev.ReasoningSummary)
+			if ev.ReasoningSummary != "" {
+				reasoningSummary += ev.ReasoningSummary
 			}
 			if len(ev.ToolCalls) > 0 {
 				toolCalls = append(toolCalls, ev.ToolCalls...)
 			}
+		}
+
+		if streamingAI {
+			cfg.Sink.EndAIStream(fullText)
+		}
+
+		if fullText != "" && !(cfg.Sink.IsSilent() && len(toolCalls) == 0) {
+			cfg.Sink.EmitLog(output.EventAI, fullText)
 		}
 
 		// No tool calls — emit the final response and return.
@@ -82,13 +99,25 @@ func Run(ctx context.Context, cfg Config) error {
 			if cfg.Sink.IsSilent() {
 				cfg.Sink.EmitFinal(fullText)
 			}
+			if reasoningSummary != "" {
+				if cfg.Sink.IsSilent() {
+					cfg.Sink.EmitLog(output.EventAI, "reasoning: "+reasoningSummary)
+				} else {
+					cfg.Sink.Emit(output.EventAI, "reasoning: "+reasoningSummary)
+				}
+			}
 			return nil
 		}
 
-		// Record assistant response in conversation history.
-		if fullText != "" {
-			cfg.Sink.Emit(output.EventAI, fullText)
+		if reasoningSummary != "" {
+			if cfg.Sink.IsSilent() {
+				cfg.Sink.EmitLog(output.EventAI, "reasoning: "+reasoningSummary)
+			} else {
+				cfg.Sink.Emit(output.EventAI, "reasoning: "+reasoningSummary)
+			}
 		}
+
+		// Record assistant response in conversation history.
 		messages = append(messages, provider.Message{
 			Role:      "assistant",
 			Content:   fullText,

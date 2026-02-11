@@ -31,14 +31,10 @@ type openAIInput struct {
 }
 
 type openAITool struct {
-	Type     string         `json:"type"`
-	Function openAIFunction `json:"function"`
-}
-
-type openAIFunction struct {
+	Type        string          `json:"type"`
 	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
 }
 
 type openAIRequest struct {
@@ -238,12 +234,10 @@ func (p *openAIProvider) buildRequest(req Request, stream bool) openAIRequest {
 
 	for _, t := range req.Tools {
 		oaiReq.Tools = append(oaiReq.Tools, openAITool{
-			Type: "function",
-			Function: openAIFunction{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters:  json.RawMessage(t.Parameters),
-			},
+			Type:        "function",
+			Name:        t.Name,
+			Description: t.Description,
+			Parameters:  json.RawMessage(t.Parameters),
 		})
 	}
 

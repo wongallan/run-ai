@@ -538,12 +538,10 @@ func (p *copilotProvider) buildResponsesRequest(req Request, stream bool) openAI
 
 	for _, t := range req.Tools {
 		oaiReq.Tools = append(oaiReq.Tools, openAITool{
-			Type: "function",
-			Function: openAIFunction{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters:  json.RawMessage(t.Parameters),
-			},
+			Type:        "function",
+			Name:        t.Name,
+			Description: t.Description,
+			Parameters:  json.RawMessage(t.Parameters),
 		})
 	}
 	return oaiReq

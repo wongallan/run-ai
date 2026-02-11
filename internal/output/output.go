@@ -145,6 +145,52 @@ func (s *Sink) Emit(kind EventKind, text string) {
 	}
 }
 
+// EmitLog writes an event only to the log file, if logging is enabled.
+func (s *Sink) EmitLog(kind EventKind, text string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.logFile != nil {
+		ts := s.now().Format("2006-01-02 15:04:05.000")
+		fmt.Fprintf(s.logFile, "[%s] [%s] %s\n", ts, kind, text)
+	}
+}
+
+// BeginAIStream writes the AI prefix to the console for inline streaming.
+func (s *Sink) BeginAIStream() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.silent {
+		return
+	}
+	fmt.Fprint(s.console, "[AI] ")
+}
+
+// EmitAIChunk writes streamed AI text without a prefix or newline.
+func (s *Sink) EmitAIChunk(text string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.silent {
+		return
+	}
+	fmt.Fprint(s.console, text)
+}
+
+// EndAIStream ensures the streamed AI output ends with a newline.
+func (s *Sink) EndAIStream(finalText string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.silent {
+		return
+	}
+	if !strings.HasSuffix(finalText, "\n") {
+		fmt.Fprintln(s.console)
+	}
+}
+
 // EmitFinal writes the final response.  It is always printed to the console,
 // even in silent mode, and is recorded in the log.
 func (s *Sink) EmitFinal(text string) {

@@ -455,7 +455,7 @@ func TestOpenAIToolCall(t *testing.T) {
 		var req openAIRequest
 		json.Unmarshal(body, &req)
 
-		if len(req.Tools) != 1 || req.Tools[0].Function.Name != "get_weather" {
+		if len(req.Tools) != 1 || req.Tools[0].Name != "get_weather" {
 			t.Fatalf("expected get_weather tool, got %+v", req.Tools)
 		}
 
