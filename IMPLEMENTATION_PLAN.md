@@ -2,6 +2,10 @@
 
 This plan translates the JTBD specs into a Go implementation. It assumes a single-binary build, minimal dependencies, and red/green TDD.
 
+## Current Blockers
+
+- None.
+
 ## Goals and Constraints
 
 - Single static-ish binary (standard Go build; no external runtime services).
@@ -11,6 +15,7 @@ This plan translates the JTBD specs into a Go implementation. It assumes a singl
 - Providers: OpenAI-compatible (Responses API), Anthropic, Google, GitHub Copilot.
 - GitHub Copilot must support GitHub.com and GitHub Enterprise.
 - Skills are consumption-only (discover, list, execute), no creation/sharing UX.
+- Config file format: simple key/value pairs using `key = "value"`.
 
 ## Architecture Overview
 
@@ -60,10 +65,10 @@ This plan translates the JTBD specs into a Go implementation. It assumes a singl
 
 ### 1) Project Skeleton and CLI Entry
 
-- [ ] Red: CLI invokes `rai "prompt"` and prints mock output.
-- [ ] Green: minimal main, parse args, route to runner.
-- [ ] Red: `rai config key value` updates local config file.
-- [ ] Green: implement config command and file creation.
+- [x] Red: CLI invokes `rai "prompt"` and prints mock output.
+- [x] Green: minimal main, parse args, route to runner.
+- [x] Red: `rai config key value` updates local config file.
+- [x] Green: implement config command and file creation.
 
 ### 2) Configuration and Precedence
 
