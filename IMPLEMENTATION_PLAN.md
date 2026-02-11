@@ -4,7 +4,7 @@ This plan translates the JTBD specs into a Go implementation. It assumes a singl
 
 ## Current Blockers
 
-- None.
+None.
 
 ## Goals and Constraints
 
@@ -72,10 +72,10 @@ This plan translates the JTBD specs into a Go implementation. It assumes a singl
 
 ### 2) Configuration and Precedence
 
-- [ ] Red: precedence order is enforced (CLI > agent YAML > .rai/config > env > defaults).
-- [ ] Green: config loader merges sources correctly.
-- [ ] Red: env variables map to config keys (RAI_ENDPOINT, RAI_API_KEY, RAI_MODEL, etc.).
-- [ ] Green: implement env parsing.
+- [x] Red: precedence order is enforced (CLI > agent YAML > .rai/config > env > defaults).
+- [x] Green: config loader merges sources correctly.
+- [x] Red: env variables map to config keys (RAI_ENDPOINT, RAI_API_KEY, RAI_MODEL, etc.).
+- [x] Green: implement env parsing.
 
 ### 3) Agent File Parsing
 
