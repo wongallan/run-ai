@@ -8,6 +8,7 @@ import (
 	"run-ai/internal/agent"
 	"run-ai/internal/config"
 	"run-ai/internal/output"
+	"run-ai/internal/skills"
 )
 
 // Parsed holds parsed CLI arguments.
@@ -168,8 +169,17 @@ func runSkills(args []string, stdout, stderr io.Writer, baseDir string) int {
 		writeUsage(stderr)
 		return 2
 	}
-	// TODO(milestone-5): implement skills discovery.
-	fmt.Fprintln(stdout, "no skills found")
+
+	discovered, warnings, err := skills.Discover(baseDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "skills error: %v\n", err)
+		return 1
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
+	}
+
+	fmt.Fprintln(stdout, skills.FormatList(discovered))
 	return 0
 }
 

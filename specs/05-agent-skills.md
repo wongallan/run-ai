@@ -44,13 +44,15 @@ Example skill structure:
 ```
 .rai/skills/
   ├── read-file/
-  │   ├── skill.yaml      # Skill metadata
-  │   └── execute.sh      # Skill implementation
+  │   ├── SKILL.md         # Skill metadata + instructions (required)
+  │   └── scripts/
+  │       └── execute.sh   # Skill implementation
   ├── make-api-call/
-  │   ├── skill.yaml
-  │   └── execute.py
+  │   ├── SKILL.md
+  │   └── scripts/
+  │       └── execute.py
   └── search-docs/
-      └── skill.yaml      # Can be self-contained
+      └── SKILL.md         # Can be self-contained
 ```
 
 ### Skills Execution

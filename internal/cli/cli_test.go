@@ -257,6 +257,33 @@ func TestRunSkillsList(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
+	if !strings.Contains(stdout.String(), "no skills found") {
+		t.Fatalf("expected 'no skills found', got %q", stdout.String())
+	}
+}
+
+func TestRunSkillsListWithSkills(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, ".rai", "skills", "test-skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	content := "---\nname: test-skill\ndescription: A test skill.\n---\nInstructions.\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"skills", "list"}, &stdout, &stderr, dir)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "test-skill") {
+		t.Fatalf("expected skill name in output, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "A test skill.") {
+		t.Fatalf("expected skill description in output, got %q", stdout.String())
+	}
 }
 
 func TestRunLogWithAgent(t *testing.T) {

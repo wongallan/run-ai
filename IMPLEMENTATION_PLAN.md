@@ -98,11 +98,15 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 5) Skills (Consumption-Only)
 
-- [ ] Red: `rai skills list` lists skills under .rai/skills/.
-- [ ] Red: tool discovery ignores global locations.
-- [ ] Green: implement discovery and rendering.
-- [ ] Red: when provider requests skill execution, invoke and return output.
-- [ ] Green: implement skill execution runtime and error handling.
+- [x] Red: `rai skills list` lists skills under .rai/skills/.
+- [x] Red: tool discovery ignores global locations.
+- [x] Green: implement discovery and rendering.
+- [x] Green: SKILL.md frontmatter parsing per agentskills.io (name, description required).
+- [x] Green: FormatContext generates XML for system prompt injection.
+- [x] Green: FormatList generates human-readable listing.
+- [x] Red: when provider requests skill execution, invoke and return output.
+- [x] Green: implement skill execution runtime and error handling.
+- [x] Fix: updated spec 05-agent-skills.md to use SKILL.md (agentskills.io) instead of skill.yaml.
 
 ### 6) Provider Core Abstraction
 
