@@ -87,10 +87,14 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 4) Output and Logging
 
-- [ ] Red: default output includes reasoning, commands, outputs.
-- [ ] Red: `-silent` prints only final response but errors still show.
-- [ ] Red: `-log` writes full session log to .rai/log/.
-- [ ] Green: implement console/log writers with shared sink.
+- [x] Red: default output includes reasoning, commands, outputs.
+- [x] Red: `-silent` prints only final response but errors still show.
+- [x] Red: `-log` writes full session log to .rai/log/.
+- [x] Green: implement console/log writers with shared sink.
+- [x] Red: `-silent -log` combined mode logs everything, console shows only final + errors.
+- [x] Green: CLI flag parsing for `-silent`, `-log`, `--agent`, `help`.
+- [x] Green: log file naming format `rai-log-YYYYMMDD.HHMMSS.log`.
+- [x] Green: log header with session metadata (args, agent, prompt, timestamps).
 
 ### 5) Skills (Consumption-Only)
 
