@@ -101,9 +101,9 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 			if reasoningSummary != "" {
 				if cfg.Sink.IsSilent() {
-					cfg.Sink.EmitLog(output.EventAI, "reasoning: "+reasoningSummary)
+					cfg.Sink.EmitLog(output.EventReasoning, reasoningSummary)
 				} else {
-					cfg.Sink.Emit(output.EventAI, "reasoning: "+reasoningSummary)
+					cfg.Sink.Emit(output.EventReasoning, reasoningSummary)
 				}
 			}
 			return nil
@@ -111,9 +111,9 @@ func Run(ctx context.Context, cfg Config) error {
 
 		if reasoningSummary != "" {
 			if cfg.Sink.IsSilent() {
-				cfg.Sink.EmitLog(output.EventAI, "reasoning: "+reasoningSummary)
+				cfg.Sink.EmitLog(output.EventReasoning, reasoningSummary)
 			} else {
-				cfg.Sink.Emit(output.EventAI, "reasoning: "+reasoningSummary)
+				cfg.Sink.Emit(output.EventReasoning, reasoningSummary)
 			}
 		}
 

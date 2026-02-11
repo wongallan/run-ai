@@ -29,10 +29,11 @@ const (
 type EventKind string
 
 const (
-	EventAI  EventKind = "AI"  // AI reasoning text
-	EventCMD EventKind = "CMD" // Terminal command being executed
-	EventOUT EventKind = "OUT" // Terminal command output
-	EventERR EventKind = "ERR" // Error or warning
+	EventAI        EventKind = "AI"     // Assistant message text
+	EventReasoning EventKind = "REASON" // Reasoning summary text
+	EventCMD       EventKind = "CMD"    // Terminal command being executed
+	EventOUT       EventKind = "OUT"    // Terminal command output
+	EventERR       EventKind = "ERR"    // Error or warning
 )
 
 // Sink receives output events and writes them to console and/or a log file.
