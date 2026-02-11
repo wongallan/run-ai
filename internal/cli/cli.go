@@ -64,6 +64,9 @@ func ParseArgs(args []string) Parsed {
 	case "skills":
 		p.Command = "skills"
 		p.SubArgs = positional[1:]
+	case "copilot-login":
+		p.Command = "copilot-login"
+		p.SubArgs = positional[1:]
 	default:
 		p.Prompt = strings.TrimSpace(strings.Join(positional, " "))
 	}
@@ -89,6 +92,8 @@ func Run(args []string, stdout, stderr io.Writer, baseDir string) int {
 		return runConfig(parsed.SubArgs, stdout, stderr, baseDir)
 	case "skills":
 		return runSkills(parsed.SubArgs, stdout, stderr, baseDir)
+	case "copilot-login":
+		return runCopilotLogin(parsed.SubArgs, stdout, stderr, baseDir)
 	default:
 		if parsed.Prompt == "" {
 			writeUsage(stderr)
@@ -150,6 +155,15 @@ func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "config error: %v\n", err)
 		return 1
+	}
+
+	// Load stored Copilot token when provider is github-copilot and no key yet.
+	provID := merged["provider"]
+	if (provID == "github-copilot" || provID == "github-copilot-enterprise") &&
+		merged["api-key"] == "" && merged["api_key"] == "" {
+		if tok := provider.LoadCopilotToken(baseDir); tok != "" {
+			merged["api-key"] = tok
+		}
 	}
 
 	// Resolve provider.
@@ -219,6 +233,36 @@ func runSkills(args []string, stdout, stderr io.Writer, baseDir string) int {
 	return 0
 }
 
+func runCopilotLogin(args []string, stdout, stderr io.Writer, baseDir string) int {
+	domain := "github.com"
+	if len(args) > 0 {
+		domain = args[0]
+	}
+
+	ctx := context.Background()
+	auth, err := provider.DeviceAuth(ctx, domain, stdout)
+	if err != nil {
+		fmt.Fprintf(stderr, "authentication failed: %v\n", err)
+		return 1
+	}
+
+	if err := provider.SaveCopilotToken(baseDir, auth.Token); err != nil {
+		fmt.Fprintf(stderr, "saving token: %v\n", err)
+		return 1
+	}
+
+	// Persist provider selection.
+	providerID := "github-copilot"
+	if domain != "" && domain != "github.com" {
+		providerID = "github-copilot-enterprise"
+		_ = config.Set(baseDir, "enterprise-url", domain)
+	}
+	_ = config.Set(baseDir, "provider", providerID)
+
+	fmt.Fprintln(stdout, "authenticated successfully")
+	return 0
+}
+
 func writeUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "Usage:")
 	fmt.Fprintln(writer, "  rai <prompt>")
@@ -227,4 +271,5 @@ func writeUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "  rai -log <prompt>")
 	fmt.Fprintln(writer, "  rai config <key> <value>")
 	fmt.Fprintln(writer, "  rai skills list")
+	fmt.Fprintln(writer, "  rai copilot-login [domain]")
 }

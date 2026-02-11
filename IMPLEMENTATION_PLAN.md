@@ -137,16 +137,18 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 10) GitHub Copilot Provider
 
-- [ ] Red: OAuth device flow works for GitHub.com.
-- [ ] Red: OAuth device flow works for GitHub Enterprise with enterprise domain normalization.
-- [ ] Red: auth data stored with enterpriseUrl and provider id.
-- [ ] Green: implement auth flow per [specs/07-opencode-github-implementation.md](specs/07-opencode-github-implementation.md).
-- [ ] Red: request headers include Authorization, User-Agent, Openai-Intent, x-initiator, and vision detection.
-- [ ] Green: implement request wrapper.
-- [ ] Red: chat vs responses selection uses Copilot model routing rules.
-- [ ] Green: implement model routing and model registry.
-- [ ] Red: responses output and streaming conversion match Copilot specifics.
-- [ ] Green: implement parsing and streaming logic.
+- [x] Red: OAuth device flow works for GitHub.com.
+- [x] Red: OAuth device flow works for GitHub Enterprise with enterprise domain normalization.
+- [x] Red: auth data stored with enterpriseUrl and provider id.
+- [x] Green: implement auth flow per [specs/07-opencode-github-implementation.md](specs/07-opencode-github-implementation.md).
+- [x] Red: request headers include Authorization, User-Agent, Openai-Intent, x-initiator, and vision detection.
+- [x] Green: implement request wrapper.
+- [x] Red: chat vs responses selection uses Copilot model routing rules.
+- [x] Green: implement model routing and model registry.
+- [x] Red: responses output and streaming conversion match Copilot specifics.
+- [x] Green: implement parsing and streaming logic.
+- [x] Green: `rai copilot-login [domain]` CLI command triggers device flow and persists token+provider.
+- [x] Green: Copilot-specific error normalization (401→re-auth, 403→model settings, subscription).
 
 ### 11) End-to-End Runner
 

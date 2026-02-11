@@ -12,6 +12,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -93,8 +94,7 @@ func Resolve(cfg map[string]string) (Provider, error) {
 
 	switch explicit {
 	case "github-copilot", "github-copilot-enterprise":
-		// TODO(milestone-10): return Copilot provider.
-		return nil, errors.New("github-copilot provider not yet implemented")
+		return newCopilotProvider(cfg, explicit)
 	}
 
 	endpoint := strings.TrimSpace(cfg["endpoint"])
@@ -163,6 +163,43 @@ func newGoogleProvider(endpoint, apiKey, model string, cfg map[string]string) (P
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,
+	}, nil
+}
+
+// newCopilotProvider creates a GitHub Copilot provider.
+// Token is sourced from api-key/api_key/copilot-token in the config map.
+// The CLI layer is responsible for loading stored tokens into the config.
+func newCopilotProvider(cfg map[string]string, providerID string) (Provider, error) {
+	token := cfg["api-key"]
+	if token == "" {
+		token = cfg["api_key"]
+	}
+	if token == "" {
+		token = cfg["copilot-token"]
+	}
+	if token == "" {
+		return nil, fmt.Errorf("GitHub Copilot token required: authenticate with 'rai copilot-login' or set api-key")
+	}
+
+	enterpriseURL := ""
+	if providerID == "github-copilot-enterprise" {
+		enterpriseURL = cfg["enterprise-url"]
+		if enterpriseURL == "" {
+			enterpriseURL = cfg["enterprise_url"]
+		}
+	}
+
+	model := cfg["model"]
+	if model == "" {
+		model = "gpt-5-mini" // default free Copilot model
+	}
+
+	baseURL := CopilotBaseURL(enterpriseURL)
+
+	return &copilotProvider{
+		baseURL: baseURL,
+		token:   token,
+		model:   model,
 	}, nil
 }
 
