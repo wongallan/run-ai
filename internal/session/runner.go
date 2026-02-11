@@ -12,7 +12,13 @@ package session
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os/exec"
+	"runtime"
+	"strings"
+	"time"
 
 	"run-ai/internal/output"
 	"run-ai/internal/provider"
@@ -20,6 +26,7 @@ import (
 )
 
 const maxToolIterations = 10
+const terminalToolName = "terminal"
 
 // Config holds everything the runner needs to execute one session.
 type Config struct {
@@ -39,11 +46,7 @@ func Run(ctx context.Context, cfg Config) error {
 	for i := 0; i < maxToolIterations; i++ {
 		req := provider.Request{
 			Messages: messages,
-		}
-
-		// Add skill tools if available.
-		if len(cfg.Skills) > 0 {
-			req.Tools = buildToolDefs(cfg.Skills)
+			Tools:    buildToolDefs(cfg.Skills),
 		}
 
 		ch, err := cfg.Provider.Stream(ctx, req)
@@ -62,6 +65,12 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 			if ev.Text != "" {
 				fullText += ev.Text
+				if !cfg.Sink.IsSilent() {
+					cfg.Sink.Emit(output.EventAI, ev.Text)
+				}
+			}
+			if ev.ReasoningSummary != "" && !cfg.Sink.IsSilent() {
+				cfg.Sink.Emit(output.EventAI, "reasoning: "+ev.ReasoningSummary)
 			}
 			if len(ev.ToolCalls) > 0 {
 				toolCalls = append(toolCalls, ev.ToolCalls...)
@@ -70,7 +79,9 @@ func Run(ctx context.Context, cfg Config) error {
 
 		// No tool calls — emit the final response and return.
 		if len(toolCalls) == 0 {
-			cfg.Sink.EmitFinal(fullText)
+			if cfg.Sink.IsSilent() {
+				cfg.Sink.EmitFinal(fullText)
+			}
 			return nil
 		}
 
@@ -82,13 +93,32 @@ func Run(ctx context.Context, cfg Config) error {
 
 		// Execute each tool call.
 		for _, tc := range toolCalls {
-			cfg.Sink.Emit(output.EventCMD, fmt.Sprintf("tool: %s(%s)", tc.Name, tc.Arguments))
+			cmdLabel := fmt.Sprintf("tool: %s(%s)", tc.Name, tc.Arguments)
+			if tc.Name == terminalToolName {
+				args, err := parseTerminalArgs(tc.Arguments)
+				if err != nil {
+					cfg.Sink.Emit(output.EventERR, fmt.Sprintf("tool error: %v", err))
+					messages = append(messages, provider.Message{
+						Role:    "tool",
+						Content: fmt.Sprintf("[%s result]\n%s", tc.Name, err.Error()),
+					})
+					continue
+				}
+				cmdLabel = args.Command
+			}
+			cfg.Sink.Emit(output.EventCMD, cmdLabel)
 
 			result, err := executeToolCall(tc, cfg)
+			toolResult := result
 			if err != nil {
 				errMsg := fmt.Sprintf("tool error: %v", err)
 				cfg.Sink.Emit(output.EventERR, errMsg)
-				result = errMsg
+				if result != "" {
+					cfg.Sink.Emit(output.EventOUT, result)
+					toolResult = errMsg + "\n" + result
+				} else {
+					toolResult = errMsg
+				}
 			} else {
 				cfg.Sink.Emit(output.EventOUT, result)
 			}
@@ -96,7 +126,7 @@ func Run(ctx context.Context, cfg Config) error {
 			// Feed tool result back into conversation.
 			messages = append(messages, provider.Message{
 				Role:    "tool",
-				Content: fmt.Sprintf("[%s result]\n%s", tc.Name, result),
+				Content: fmt.Sprintf("[%s result]\n%s", tc.Name, toolResult),
 			})
 		}
 	}
@@ -131,7 +161,7 @@ func buildMessages(cfg Config) []provider.Message {
 }
 
 func buildToolDefs(discovered []skills.Skill) []provider.ToolDef {
-	var tools []provider.ToolDef
+	tools := []provider.ToolDef{terminalToolDef()}
 	for _, s := range discovered {
 		tools = append(tools, provider.ToolDef{
 			Name:        s.Name,
@@ -142,7 +172,23 @@ func buildToolDefs(discovered []skills.Skill) []provider.ToolDef {
 	return tools
 }
 
+func terminalToolDef() provider.ToolDef {
+	return provider.ToolDef{
+		Name:        terminalToolName,
+		Description: "Run a shell command in the current workspace.",
+		Parameters:  `{"type":"object","properties":{"command":{"type":"string","description":"Shell command to run."}},"required":["command"]}`,
+	}
+}
+
 func executeToolCall(tc provider.ToolCall, cfg Config) (string, error) {
+	if tc.Name == terminalToolName {
+		args, err := parseTerminalArgs(tc.Arguments)
+		if err != nil {
+			return "", err
+		}
+		return runTerminalCommand(args.Command, cfg.BaseDir)
+	}
+
 	// Find matching skill.
 	for _, s := range cfg.Skills {
 		if s.Name == tc.Name {
@@ -153,4 +199,55 @@ func executeToolCall(tc provider.ToolCall, cfg Config) (string, error) {
 	}
 
 	return "", fmt.Errorf("unknown tool: %s", tc.Name)
+}
+
+type terminalArgs struct {
+	Command string `json:"command"`
+}
+
+func parseTerminalArgs(raw string) (terminalArgs, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return terminalArgs{}, errors.New("terminal tool requires command")
+	}
+
+	var args terminalArgs
+	if err := json.Unmarshal([]byte(trimmed), &args); err != nil {
+		var str string
+		if err2 := json.Unmarshal([]byte(trimmed), &str); err2 == nil {
+			args.Command = str
+		} else {
+			return terminalArgs{}, fmt.Errorf("invalid terminal arguments: %w", err)
+		}
+	}
+
+	args.Command = strings.TrimSpace(args.Command)
+	if args.Command == "" {
+		return terminalArgs{}, errors.New("terminal tool requires command")
+	}
+	return args, nil
+}
+
+func runTerminalCommand(command, workDir string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "cmd.exe", "/C", command)
+	} else {
+		cmd = exec.CommandContext(ctx, "sh", "-c", command)
+	}
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(output), fmt.Errorf("command timed out")
+	}
+	if err != nil {
+		return string(output), fmt.Errorf("command failed: %w", err)
+	}
+	return string(output), nil
 }

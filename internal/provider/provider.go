@@ -40,10 +40,11 @@ type ToolDef struct {
 // StreamEvent represents a chunk of streaming output from a provider.
 type StreamEvent struct {
 	// Exactly one of these is set per event.
-	Text      string     // Incremental text content.
-	ToolCalls []ToolCall // Tool invocation requests.
-	Done      bool       // End of stream marker.
-	Error     error      // Provider-side error.
+	Text             string     // Incremental text content.
+	ReasoningSummary string     // Incremental reasoning summary text.
+	ToolCalls        []ToolCall // Tool invocation requests.
+	Done             bool       // End of stream marker.
+	Error            error      // Provider-side error.
 }
 
 // Request holds everything needed to send a prompt to a provider.
@@ -57,8 +58,9 @@ type Request struct {
 
 // Response is the complete, non-streaming result of a provider call.
 type Response struct {
-	Content   string
-	ToolCalls []ToolCall
+	Content          string
+	ReasoningSummary string
+	ToolCalls        []ToolCall
 }
 
 // Provider is the interface every LLM backend must implement.
@@ -217,6 +219,9 @@ func CollectStream(ch <-chan StreamEvent, w io.Writer) (Response, error) {
 			if w != nil {
 				io.WriteString(w, ev.Text)
 			}
+		}
+		if ev.ReasoningSummary != "" {
+			resp.ReasoningSummary += ev.ReasoningSummary
 		}
 		if len(ev.ToolCalls) > 0 {
 			resp.ToolCalls = append(resp.ToolCalls, ev.ToolCalls...)

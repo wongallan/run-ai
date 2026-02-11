@@ -55,6 +55,10 @@ type openAIResponseOutput struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"content,omitempty"`
+	Summary []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"summary,omitempty"`
 	ID        string `json:"id,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Arguments string `json:"arguments,omitempty"`
@@ -189,6 +193,10 @@ func (p *openAIProvider) readSSE(ctx context.Context, body io.Reader, ch chan<- 
 			if event.Delta != "" {
 				ch <- StreamEvent{Text: event.Delta}
 			}
+		case "response.reasoning_summary_text.delta":
+			if event.Delta != "" {
+				ch <- StreamEvent{ReasoningSummary: event.Delta}
+			}
 		case "response.function_call_arguments.done":
 			if event.Item != nil {
 				ch <- StreamEvent{ToolCalls: []ToolCall{{
@@ -254,6 +262,12 @@ func (p *openAIProvider) parseResponse(resp openAIResponse) Response {
 			for _, c := range out.Content {
 				if c.Type == "text" {
 					result.Content += c.Text
+				}
+			}
+		case "reasoning", "reasoning_summary":
+			for _, s := range out.Summary {
+				if s.Type == "text" {
+					result.ReasoningSummary += s.Text
 				}
 			}
 		case "function_call":

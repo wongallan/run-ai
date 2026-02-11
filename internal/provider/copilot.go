@@ -472,6 +472,10 @@ func (p *copilotProvider) readResponsesSSE(ctx context.Context, body io.Reader, 
 			if event.Delta != "" {
 				ch <- StreamEvent{Text: event.Delta}
 			}
+		case "response.reasoning_summary_text.delta":
+			if event.Delta != "" {
+				ch <- StreamEvent{ReasoningSummary: event.Delta}
+			}
 		case "response.function_call_arguments.done":
 			if event.Item != nil {
 				ch <- StreamEvent{ToolCalls: []ToolCall{{
@@ -530,6 +534,12 @@ func (p *copilotProvider) parseResponsesOutput(resp openAIResponse) Response {
 			for _, c := range out.Content {
 				if c.Type == "text" {
 					result.Content += c.Text
+				}
+			}
+		case "reasoning", "reasoning_summary":
+			for _, s := range out.Summary {
+				if s.Type == "text" {
+					result.ReasoningSummary += s.Text
 				}
 			}
 		case "function_call":

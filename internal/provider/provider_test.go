@@ -165,13 +165,22 @@ func TestOpenAIComplete(t *testing.T) {
 
 		resp := openAIResponse{
 			ID: "resp-1",
-			Output: []openAIResponseOutput{{
-				Type: "message",
-				Content: []struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
-				}{{Type: "text", Text: "Paris is the capital of France."}},
-			}},
+			Output: []openAIResponseOutput{
+				{
+					Type: "reasoning",
+					Summary: []struct {
+						Type string `json:"type"`
+						Text string `json:"text"`
+					}{{Type: "text", Text: "Paris is the capital."}},
+				},
+				{
+					Type: "message",
+					Content: []struct {
+						Type string `json:"type"`
+						Text string `json:"text"`
+					}{{Type: "text", Text: "Paris is the capital of France."}},
+				},
+			},
 		}
 		json.NewEncoder(w).Encode(resp)
 	}))
@@ -192,6 +201,9 @@ func TestOpenAIComplete(t *testing.T) {
 	if !strings.Contains(resp.Content, "Paris") {
 		t.Fatalf("expected Paris in response, got %q", resp.Content)
 	}
+	if !strings.Contains(resp.ReasoningSummary, "Paris is the capital") {
+		t.Fatalf("expected reasoning summary, got %q", resp.ReasoningSummary)
+	}
 }
 
 // --- OpenAI Stream test ---
@@ -202,6 +214,7 @@ func TestOpenAIStream(t *testing.T) {
 		flusher, _ := w.(http.Flusher)
 
 		events := []string{
+			`{"type":"response.reasoning_summary_text.delta","delta":"Reasoning summary."}`,
 			`{"type":"response.output_text.delta","delta":"Hello"}`,
 			`{"type":"response.output_text.delta","delta":" world"}`,
 			`{"type":"response.completed"}`,
@@ -236,6 +249,9 @@ func TestOpenAIStream(t *testing.T) {
 	}
 	if buf.String() != "Hello world" {
 		t.Fatalf("written = %q", buf.String())
+	}
+	if resp.ReasoningSummary != "Reasoning summary." {
+		t.Fatalf("reasoning = %q", resp.ReasoningSummary)
 	}
 }
 

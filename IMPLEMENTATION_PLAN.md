@@ -4,7 +4,8 @@ This plan translates the JTBD specs into a Go implementation. It assumes a singl
 
 ## Current Blockers
 
-None.
+- Streaming output not visible for Copilot `gpt-5-mini` because the runner buffers stream text and only prints at the end.
+- Terminal tool execution is not implemented, so tool calls cannot run shell commands.
 
 ## Goals and Constraints
 
@@ -95,6 +96,10 @@ Note: Known keys list is limited; warn on unknown keys.
 - [x] Green: CLI flag parsing for `-silent`, `-log`, `--agent`, `help`.
 - [x] Green: log file naming format `rai-log-YYYYMMDD.HHMMSS.log`.
 - [x] Green: log header with session metadata (args, agent, prompt, timestamps).
+- [ ] Red: streaming events are emitted to console/log in real-time (no end-only buffering).
+- [ ] Green: runner streams AI text as it arrives and only prints final response in silent mode.
+- [ ] Red: terminal tool calls emit command + output events in order.
+- [ ] Green: terminal tool execution wired into runner with cross-platform shell handling.
 
 ### 5) Skills (Consumption-Only)
 
@@ -160,6 +165,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - [x] Green: system prompt + skill context injection.
 - [x] Green: streaming output through sink.
 - [x] Green: CLI wired to session runner with provider resolution fallback.
+- [ ] Red: tool call loop executes terminal commands and returns results to the model.
+- [ ] Green: tool calls support terminal JSON args with command parsing and error handling.
 
 ### 12) Hardening and UX
 
@@ -176,6 +183,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - Integration tests: each provider request/response mapping (mock HTTP).
 - E2E tests: CLI invocation with mocked provider server.
 - Regression tests: Copilot device flow, enterprise base URL, x-initiator logic.
+- Streaming tests: verify incremental console output for stream events.
+- Terminal tool tests: execute a simple command and capture output.
 
 ## Build and Release
 
