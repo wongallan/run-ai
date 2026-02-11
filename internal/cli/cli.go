@@ -14,6 +14,9 @@ import (
 	"run-ai/internal/skills"
 )
 
+var copilotDeviceAuth = provider.DeviceAuth
+var copilotSaveToken = provider.SaveCopilotToken
+
 // Parsed holds parsed CLI arguments.
 type Parsed struct {
 	Command   string   // "config", "skills", "" (prompt mode)
@@ -205,6 +208,15 @@ func runConfig(args []string, stdout, stderr io.Writer, baseDir string) int {
 	key := strings.TrimSpace(args[0])
 	value := args[1]
 
+	if key == "provider" && (value == "github-copilot" || value == "github-copilot-enterprise") {
+		if err := configureCopilotProvider(value, stdout, stderr, baseDir); err != nil {
+			fmt.Fprintf(stderr, "config error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, "config updated")
+		return 0
+	}
+
 	if err := config.Set(baseDir, key, value); err != nil {
 		fmt.Fprintf(stderr, "config error: %v\n", err)
 		return 1
@@ -238,16 +250,7 @@ func runCopilotLogin(args []string, stdout, stderr io.Writer, baseDir string) in
 	if len(args) > 0 {
 		domain = args[0]
 	}
-
-	ctx := context.Background()
-	auth, err := provider.DeviceAuth(ctx, domain, stdout)
-	if err != nil {
-		fmt.Fprintf(stderr, "authentication failed: %v\n", err)
-		return 1
-	}
-
-	if err := provider.SaveCopilotToken(baseDir, auth.Token); err != nil {
-		fmt.Fprintf(stderr, "saving token: %v\n", err)
+	if err := authenticateCopilot(domain, stdout, stderr, baseDir); err != nil {
 		return 1
 	}
 
@@ -258,9 +261,52 @@ func runCopilotLogin(args []string, stdout, stderr io.Writer, baseDir string) in
 		_ = config.Set(baseDir, "enterprise-url", domain)
 	}
 	_ = config.Set(baseDir, "provider", providerID)
+	return 0
+}
+
+func configureCopilotProvider(providerID string, stdout, stderr io.Writer, baseDir string) error {
+	domain := "github.com"
+	if providerID == "github-copilot-enterprise" {
+		values, err := config.Load(baseDir)
+		if err != nil {
+			return err
+		}
+		domain = strings.TrimSpace(values["enterprise-url"])
+		if domain == "" {
+			return fmt.Errorf("enterprise-url must be set before configuring github-copilot-enterprise")
+		}
+	}
+
+	if err := authenticateCopilot(domain, stdout, stderr, baseDir); err != nil {
+		return err
+	}
+
+	if providerID == "github-copilot-enterprise" {
+		_ = config.Set(baseDir, "enterprise-url", domain)
+	}
+	return config.Set(baseDir, "provider", providerID)
+}
+
+func authenticateCopilot(domain string, stdout, stderr io.Writer, baseDir string) error {
+	domain = provider.NormalizeDomain(domain)
+	if domain == "" {
+		domain = "github.com"
+	}
+
+	ctx := context.Background()
+	auth, err := copilotDeviceAuth(ctx, domain, stdout)
+	if err != nil {
+		fmt.Fprintf(stderr, "authentication failed: %v\n", err)
+		return err
+	}
+
+	if err := copilotSaveToken(baseDir, auth.Token); err != nil {
+		fmt.Fprintf(stderr, "saving token: %v\n", err)
+		return err
+	}
 
 	fmt.Fprintln(stdout, "authenticated successfully")
-	return 0
+	return nil
 }
 
 func writeUsage(writer io.Writer) {

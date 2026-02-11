@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -20,6 +22,8 @@ const (
 	defaultCopilotBaseURL = "https://api.githubcopilot.com"
 	oauthPollingMarginMs  = 500
 )
+
+var openBrowser = openBrowserDefault
 
 // CopilotAuth holds the result of a successful GitHub Copilot authentication.
 type CopilotAuth struct {
@@ -104,18 +108,28 @@ func DeviceAuth(ctx context.Context, domain string, w io.Writer) (*CopilotAuth, 
 	}
 
 	var deviceData struct {
-		VerificationURI string `json:"verification_uri"`
-		UserCode        string `json:"user_code"`
-		DeviceCode      string `json:"device_code"`
-		Interval        int    `json:"interval"`
+		VerificationURI         string `json:"verification_uri"`
+		VerificationURIComplete string `json:"verification_uri_complete"`
+		UserCode                string `json:"user_code"`
+		DeviceCode              string `json:"device_code"`
+		Interval                int    `json:"interval"`
 	}
 	if err := json.Unmarshal(body, &deviceData); err != nil {
 		return nil, fmt.Errorf("parsing device response: %w", err)
 	}
 
 	// Step 2: instruct the user.
+	verificationURL := deviceData.VerificationURIComplete
+	if verificationURL == "" {
+		verificationURL = deviceData.VerificationURI
+	}
+	if verificationURL != "" {
+		if err := openBrowser(verificationURL); err == nil {
+			fmt.Fprintln(w, "Opening browser for authentication...")
+		}
+	}
 	fmt.Fprintf(w, "Open %s and enter code: %s\n", deviceData.VerificationURI, deviceData.UserCode)
-	fmt.Fprintf(w, "Waiting for authentication...\n")
+	fmt.Fprintln(w, "Waiting for authentication...")
 
 	// Step 3: poll for the access token.
 	interval := time.Duration(deviceData.Interval) * time.Second
@@ -188,6 +202,24 @@ func DeviceAuth(ctx context.Context, domain string, w io.Writer) (*CopilotAuth, 
 			return nil, fmt.Errorf("authentication failed: %s", tokenData.Error)
 		}
 	}
+}
+
+func openBrowserDefault(target string) error {
+	if target == "" {
+		return fmt.Errorf("missing URL")
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
+	case "darwin":
+		cmd = exec.Command("open", target)
+	default:
+		cmd = exec.Command("xdg-open", target)
+	}
+
+	return cmd.Start()
 }
 
 // LoadCopilotToken reads a stored Copilot token from .rai/copilot-token.

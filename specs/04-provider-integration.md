@@ -72,6 +72,12 @@ rai config provider github-copilot
 # Uses OAuth flow or GitHub token
 ```
 
+When users run `rai config provider github-copilot`, the CLI should automatically
+start the OAuth device flow, open the verification URL in the default browser
+when possible, and persist the token on success. The CLI should only require
+manual copy/paste if the platform cannot open the browser or GitHub does not
+provide a complete verification URL.
+
 ### Provider Abstraction
 
 **Job:** Switch providers without changing my workflow

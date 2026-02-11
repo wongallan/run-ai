@@ -141,6 +141,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - [x] Red: OAuth device flow works for GitHub Enterprise with enterprise domain normalization.
 - [x] Red: auth data stored with enterpriseUrl and provider id.
 - [x] Green: implement auth flow per [specs/07-opencode-github-implementation.md](specs/07-opencode-github-implementation.md).
+- [ ] Red: `rai config provider github-copilot` triggers OAuth flow and persists token automatically.
+- [ ] Green: implement config hook with auto browser open + fallback instructions.
 - [x] Red: request headers include Authorization, User-Agent, Openai-Intent, x-initiator, and vision detection.
 - [x] Green: implement request wrapper.
 - [x] Red: chat vs responses selection uses Copilot model routing rules.

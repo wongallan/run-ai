@@ -2,10 +2,15 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"run-ai/internal/provider"
 )
 
 // --- ParseArgs tests ---
@@ -195,6 +200,60 @@ func TestRunConfigCommand(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, ".rai", "config"))
 	if !strings.Contains(string(data), "gpt-4") {
 		t.Fatalf("config file missing value, got %q", string(data))
+	}
+}
+
+func TestRunConfigProviderCopilotTriggersAuth(t *testing.T) {
+	dir := t.TempDir()
+	var called bool
+	prevAuth := copilotDeviceAuth
+	prevSave := copilotSaveToken
+	copilotDeviceAuth = func(ctx context.Context, domain string, w io.Writer) (*provider.CopilotAuth, error) {
+		called = true
+		if domain != "github.com" {
+			return nil, fmt.Errorf("unexpected domain: %s", domain)
+		}
+		fmt.Fprintln(w, "mock auth")
+		return &provider.CopilotAuth{Token: "gho_test"}, nil
+	}
+	copilotSaveToken = provider.SaveCopilotToken
+	defer func() {
+		copilotDeviceAuth = prevAuth
+		copilotSaveToken = prevSave
+	}()
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"config", "provider", "github-copilot"}, &stdout, &stderr, dir)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !called {
+		t.Fatal("expected device auth to be called")
+	}
+	if !strings.Contains(stdout.String(), "authenticated successfully") {
+		t.Fatalf("expected auth confirmation, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "config updated") {
+		t.Fatalf("expected config confirmation, got %q", stdout.String())
+	}
+	if provider.LoadCopilotToken(dir) != "gho_test" {
+		t.Fatalf("expected token to be saved")
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, ".rai", "config"))
+	if !strings.Contains(string(data), "provider = \"github-copilot\"") {
+		t.Fatalf("expected provider to be persisted, got %q", string(data))
+	}
+}
+
+func TestRunConfigProviderCopilotEnterpriseMissingURL(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"config", "provider", "github-copilot-enterprise"}, &stdout, &stderr, dir)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "enterprise-url must be set") {
+		t.Fatalf("expected enterprise-url error, got %q", stderr.String())
 	}
 }
 
