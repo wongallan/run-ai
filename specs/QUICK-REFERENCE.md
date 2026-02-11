@@ -74,7 +74,7 @@ You are a helpful coding assistant specialized in Python...
 ## Supported LLM Providers
 
 ### OpenAI-Compatible
-- **API**: `/v1/chat/completions`
+- **API**: `/v1/responses`
 - **Auth**: API key in header
 - **Config Example**:
   ```bash
@@ -104,7 +104,8 @@ You are a helpful coding assistant specialized in Python...
   ```
 
 ### GitHub Copilot
-- **Auth**: OAuth device flow or token (from https://github.com/anomalyco/opencode)
+- **Auth**: OAuth device flow or token
+- **Details**: [07-opencode-github-implementation.md](./07-opencode-github-implementation.md) (GitHub.com and GitHub Enterprise)
 - **Config Example**:
   ```bash
   rai config provider github-copilot
@@ -150,7 +151,7 @@ model: gpt-4
 
 1. **No Global Config** - All configuration is local (`.rai/`) or environment variables
 2. **Terminal Only** - Only supports terminal commands, no other tools
-3. **Local Skills** - Skills only loaded from `.rai/skills/`
+3. **Local Skills** - Skills only loaded from `.rai/skills/` and consumed (no creation or sharing)
 4. **Transparent** - All operations visible in console unless `-silent`
 5. **Lightweight** - Minimal dependencies, fast startup
 6. **Standards-Based** - Follows agentskills.io for skills, standard provider APIs
@@ -164,3 +165,4 @@ See the full JTBD specifications in the `specs/` directory:
 - [04-provider-integration.md](./04-provider-integration.md)
 - [05-agent-skills.md](./05-agent-skills.md)
 - [06-logging-output.md](./06-logging-output.md)
+- [07-opencode-github-implementation.md](./07-opencode-github-implementation.md)

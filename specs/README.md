@@ -16,6 +16,7 @@ The specifications are organized by topic of concern:
 4. **[LLM Provider Integration](./04-provider-integration.md)** - Support for OpenAI, Anthropic, Google, and GitHub Copilot
 5. **[Agent Skills](./05-agent-skills.md)** - Extending agents with callable skills following agentskills.io spec
 6. **[Logging and Output](./06-logging-output.md)** - Console output, silent mode, and persistent logging
+7. **[GitHub Copilot Implementation](./07-opencode-github-implementation.md)** - Detailed OpenCode-based Copilot provider notes
 
 ## What is JTBD?
 

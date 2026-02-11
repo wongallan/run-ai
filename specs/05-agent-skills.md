@@ -30,15 +30,15 @@ While the core tool only supports terminal commands, the Agent Skills specificat
 - When the LLM requests a skill execution, the tool invokes it
 - Skill execution results are returned to the LLM for continued reasoning
 
-### Skills Format (per agentskills.io)
+### Skills Format (Consumption Only)
 
-**Job:** Create and share skills
+**Job:** Use existing skills
 
-Skills follow the agentskills.io specification:
+Skills must already exist and follow the agentskills.io specification:
 - Each skill is defined in its own file or directory
 - Skill metadata (name, description, parameters) follows the spec format
 - Skills can be executables, scripts, or configuration files
-- Skills are portable and can be shared across projects
+- The CLI does not create or share skills; it only discovers and executes them
 
 Example skill structure:
 ```
@@ -75,7 +75,7 @@ Example skill structure:
 - Users can add a new skill and use it in < 10 minutes
 - Skills are self-documenting via metadata
 - Skill execution is transparent and debuggable
-- Skills can be shared and reused across projects
+- Skills are discovered and used without manual configuration
 
 ## Implementation Notes
 

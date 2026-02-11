@@ -19,7 +19,7 @@ Different users have access to different LLM providers. Some use OpenAI, others 
 The tool must support these providers:
 
 1. **OpenAI-compatible APIs** (OpenAI, Azure OpenAI, etc.)
-   - Uses the Chat Completions API (`/v1/chat/completions`)
+   - Uses the Responses API (`/v1/responses`)
    - Supports streaming responses
    - Standard authentication via API key in header
 
@@ -35,9 +35,9 @@ The tool must support these providers:
 
 4. **GitHub Copilot**
    - Most complex authentication flow
-   - Implementation copied exactly from: https://github.com/anomalyco/opencode
-   - Follow their authentication pattern to benefit from their bug fixes and updates
+   - Implementation based on the OpenCode writeup in [07-opencode-github-implementation.md](./07-opencode-github-implementation.md)
    - Supports OAuth device flow or token-based auth
+   - Must support both GitHub.com and GitHub Enterprise
 
 ### Provider Configuration
 
@@ -85,9 +85,9 @@ rai config provider github-copilot
 
 **Job:** Use GitHub Copilot as my LLM provider
 
-- Authentication flow copied from https://github.com/anomalyco/opencode
-- Exact implementation to ensure compatibility and benefit from upstream fixes
+- Authentication flow based on [07-opencode-github-implementation.md](./07-opencode-github-implementation.md)
 - Supports both OAuth device flow and token-based authentication
+- Supports both GitHub.com and GitHub Enterprise
 - Clear error messages when authentication fails or expires
 
 ## Success Metrics
