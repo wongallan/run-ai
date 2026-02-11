@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	copilotClientID       = "Ov23li8tweQw6odWQebz"
+	copilotClientID       = "Ov23lihVA6IPSeMxp4BB"
 	copilotScope          = "read:user"
 	defaultCopilotBaseURL = "https://api.githubcopilot.com"
 	oauthPollingMarginMs  = 500
