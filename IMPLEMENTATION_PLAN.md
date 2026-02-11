@@ -79,9 +79,11 @@ None.
 
 ### 3) Agent File Parsing
 
-- [ ] Red: markdown-only agent file becomes system prompt.
-- [ ] Red: YAML frontmatter merges into config and warnings on unknown keys.
-- [ ] Green: parse frontmatter, merge, preserve markdown body.
+Note: Known keys list is limited; warn on unknown keys.
+
+- [x] Red: markdown-only agent file becomes system prompt.
+- [x] Red: YAML frontmatter merges into config and warnings on unknown keys.
+- [x] Green: parse frontmatter, merge, preserve markdown body.
 
 ### 4) Output and Logging
 
@@ -161,6 +163,10 @@ None.
 
 ## Open Questions and Assumptions
 
+- Tooling boundaries: spec mentions terminal-only tools while skills can do file/API ops; clarify allowed capabilities per execution path.
+- "Works immediately" conflicts with provider credentials/config requirements; define expected first-run behavior and prompts.
+- Provider auto-detection rules are underspecified; confirm heuristics and precedence when endpoints overlap.
+- Env var mapping list is incomplete despite key/value .rai/config format; finalize supported RAI_* keys and docs.
 - Whether to allow token-based Copilot auth in addition to device flow (spec allows it).
 - Model list source for Copilot (static list vs periodically updated).
 - Skill execution sandboxing (process isolation vs trust by local repo).
