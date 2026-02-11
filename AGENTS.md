@@ -2,7 +2,7 @@
 
 Minimal steps to build and run the project locally.
 
-- **Build:**: `go build -ldflags "-s -w" ./...`
+- **Build:**: `go build -ldflags "-s -w" -o rai.exe ./cmd/rai`
 - **Run (dev):**: `go run ./cmd/rai` or `go run ./cmd/rai -- help`
 - **Cross-platform:**: standard Go build supports Windows/macOS/Linux.
 
