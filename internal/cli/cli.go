@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -8,6 +9,8 @@ import (
 	"run-ai/internal/agent"
 	"run-ai/internal/config"
 	"run-ai/internal/output"
+	"run-ai/internal/provider"
+	"run-ai/internal/session"
 	"run-ai/internal/skills"
 )
 
@@ -141,9 +144,42 @@ func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
 		fmt.Fprintf(stderr, "log: %s\n", logPath)
 	}
 
-	// TODO(milestone-11): send prompt to provider via session runner.
-	// For now emit the prompt so we have observable output.
-	sink.EmitFinal(fmt.Sprintf("prompt: %s", p.Prompt))
+	// Merge configuration: defaults < env < file < agent < cli.
+	defaults := map[string]string{}
+	merged, err := config.LoadMerged(baseDir, ag.Config, map[string]string{}, defaults)
+	if err != nil {
+		fmt.Fprintf(stderr, "config error: %v\n", err)
+		return 1
+	}
+
+	// Resolve provider.
+	prov, err := provider.Resolve(merged)
+	if err != nil {
+		// No provider configured — fall back to echo mode for basic usage.
+		sink.EmitFinal(fmt.Sprintf("prompt: %s", p.Prompt))
+		return 0
+	}
+
+	// Discover skills.
+	discovered, skillWarnings, _ := skills.Discover(baseDir)
+	for _, w := range skillWarnings {
+		sink.Emit(output.EventERR, w)
+	}
+
+	// Run the session.
+	ctx := context.Background()
+	if err := session.Run(ctx, session.Config{
+		Provider:     prov,
+		Sink:         sink,
+		SystemPrompt: ag.SystemPrompt,
+		UserPrompt:   p.Prompt,
+		Skills:       discovered,
+		BaseDir:      baseDir,
+	}); err != nil {
+		fmt.Fprintf(stderr, "session error: %v\n", err)
+		return 1
+	}
+
 	return 0
 }
 

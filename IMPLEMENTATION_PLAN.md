@@ -150,9 +150,12 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 11) End-to-End Runner
 
-- [ ] Red: end-to-end prompt with provider results in expected output.
-- [ ] Red: tool calls are executed, results fed back to provider.
-- [ ] Green: implement prompt assembly and loop.
+- [x] Red: end-to-end prompt with provider results in expected output.
+- [x] Red: tool calls are executed, results fed back to provider.
+- [x] Green: implement prompt assembly and loop.
+- [x] Green: system prompt + skill context injection.
+- [x] Green: streaming output through sink.
+- [x] Green: CLI wired to session runner with provider resolution fallback.
 
 ### 12) Hardening and UX
 
