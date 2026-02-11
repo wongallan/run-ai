@@ -88,7 +88,7 @@ func (p *anthropicProvider) Complete(ctx context.Context, req Request) (Response
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		return Response{}, fmt.Errorf("anthropic error (HTTP %d): %s", httpResp.StatusCode, string(respBody))
+		return Response{}, NormalizeHTTPError("anthropic", httpResp.StatusCode, string(respBody))
 	}
 
 	var antResp anthropicResponse
@@ -127,7 +127,7 @@ func (p *anthropicProvider) Stream(ctx context.Context, req Request) (<-chan Str
 	if httpResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(httpResp.Body)
 		httpResp.Body.Close()
-		return nil, fmt.Errorf("anthropic error (HTTP %d): %s", httpResp.StatusCode, string(body))
+		return nil, NormalizeHTTPError("anthropic", httpResp.StatusCode, string(body))
 	}
 
 	ch := make(chan StreamEvent, 16)

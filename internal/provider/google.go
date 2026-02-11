@@ -101,7 +101,7 @@ func (p *googleProvider) Complete(ctx context.Context, req Request) (Response, e
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		return Response{}, fmt.Errorf("google error (HTTP %d): %s", httpResp.StatusCode, string(respBody))
+		return Response{}, NormalizeHTTPError("google", httpResp.StatusCode, string(respBody))
 	}
 
 	var gemResp geminiResponse
@@ -142,7 +142,7 @@ func (p *googleProvider) Stream(ctx context.Context, req Request) (<-chan Stream
 	if httpResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(httpResp.Body)
 		httpResp.Body.Close()
-		return nil, fmt.Errorf("google error (HTTP %d): %s", httpResp.StatusCode, string(body))
+		return nil, NormalizeHTTPError("google", httpResp.StatusCode, string(body))
 	}
 
 	ch := make(chan StreamEvent, 16)

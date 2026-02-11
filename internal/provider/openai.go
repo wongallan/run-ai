@@ -98,7 +98,7 @@ func (p *openAIProvider) Complete(ctx context.Context, req Request) (Response, e
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		return Response{}, fmt.Errorf("openai error (HTTP %d): %s", httpResp.StatusCode, string(respBody))
+		return Response{}, NormalizeHTTPError("openai", httpResp.StatusCode, string(respBody))
 	}
 
 	var oaiResp openAIResponse
@@ -137,7 +137,7 @@ func (p *openAIProvider) Stream(ctx context.Context, req Request) (<-chan Stream
 	if httpResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(httpResp.Body)
 		httpResp.Body.Close()
-		return nil, fmt.Errorf("openai error (HTTP %d): %s", httpResp.StatusCode, string(body))
+		return nil, NormalizeHTTPError("openai", httpResp.StatusCode, string(body))
 	}
 
 	ch := make(chan StreamEvent, 16)

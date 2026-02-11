@@ -159,10 +159,12 @@ Note: Known keys list is limited; warn on unknown keys.
 
 ### 12) Hardening and UX
 
-- [ ] Red: clear error messages for auth, missing models, and rate errors.
-- [ ] Green: normalize provider errors and surface actionable guidance.
-- [ ] Red: CLI exit codes reflect failures.
-- [ ] Green: consistent error handling and exit codes.
+- [x] Red: clear error messages for auth, missing models, and rate errors.
+- [x] Green: normalize provider errors and surface actionable guidance.
+- [x] Red: CLI exit codes reflect failures.
+- [x] Green: consistent error handling and exit codes (0=success, 1=error, 2=usage).
+- [x] Green: ProviderError type with status code, message, and guidance.
+- [x] Green: NormalizeHTTPError covers 401, 403, 404, 429, 5xx.
 
 ## Testing Matrix
 

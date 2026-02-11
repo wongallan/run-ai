@@ -471,7 +471,84 @@ func TestOpenAIHTTPError(t *testing.T) {
 	_, err := p.Complete(context.Background(), Request{
 		Messages: []Message{{Role: "user", Content: "hi"}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "429") {
-		t.Fatalf("expected HTTP 429 error, got %v", err)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	// Should be a ProviderError with actionable guidance.
+	pe, ok := err.(*ProviderError)
+	if !ok {
+		t.Fatalf("expected ProviderError, got %T: %v", err, err)
+	}
+	if pe.StatusCode != 429 {
+		t.Fatalf("status = %d, want 429", pe.StatusCode)
+	}
+	if !strings.Contains(pe.Guidance, "wait") {
+		t.Fatalf("expected rate limit guidance, got %q", pe.Guidance)
+	}
+}
+
+func TestNormalizeHTTPError401(t *testing.T) {
+	pe := NormalizeHTTPError("openai", 401, "Unauthorized")
+	if pe.StatusCode != 401 {
+		t.Fatalf("status = %d", pe.StatusCode)
+	}
+	if !strings.Contains(pe.Message, "authentication") {
+		t.Fatalf("message = %q", pe.Message)
+	}
+	if !strings.Contains(pe.Guidance, "api-key") {
+		t.Fatalf("guidance = %q", pe.Guidance)
+	}
+}
+
+func TestNormalizeHTTPError403(t *testing.T) {
+	pe := NormalizeHTTPError("anthropic", 403, "Forbidden")
+	if !strings.Contains(pe.Message, "access denied") {
+		t.Fatalf("message = %q", pe.Message)
+	}
+}
+
+func TestNormalizeHTTPError404(t *testing.T) {
+	pe := NormalizeHTTPError("google", 404, "Not found")
+	if !strings.Contains(pe.Message, "not found") {
+		t.Fatalf("message = %q", pe.Message)
+	}
+	if !strings.Contains(pe.Guidance, "endpoint") {
+		t.Fatalf("guidance = %q", pe.Guidance)
+	}
+}
+
+func TestNormalizeHTTPError500(t *testing.T) {
+	pe := NormalizeHTTPError("openai", 502, "Bad Gateway")
+	if !strings.Contains(pe.Message, "server error") {
+		t.Fatalf("message = %q", pe.Message)
+	}
+	if !strings.Contains(pe.Guidance, "try again") {
+		t.Fatalf("guidance = %q", pe.Guidance)
+	}
+}
+
+func TestNormalizeHTTPErrorUnknown(t *testing.T) {
+	pe := NormalizeHTTPError("test", 418, "I'm a teapot")
+	if pe.StatusCode != 418 {
+		t.Fatalf("status = %d", pe.StatusCode)
+	}
+	if !strings.Contains(pe.Message, "I'm a teapot") {
+		t.Fatalf("message = %q", pe.Message)
+	}
+}
+
+func TestProviderErrorString(t *testing.T) {
+	pe := &ProviderError{
+		Provider: "openai",
+		Message:  "auth failed",
+		Guidance: "check api-key",
+	}
+	s := pe.Error()
+	if !strings.Contains(s, "openai: auth failed") {
+		t.Fatalf("error = %q", s)
+	}
+	if !strings.Contains(s, "check api-key") {
+		t.Fatalf("error = %q", s)
 	}
 }
