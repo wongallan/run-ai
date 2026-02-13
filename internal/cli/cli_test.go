@@ -54,6 +54,19 @@ func TestParseArgsLog(t *testing.T) {
 	}
 }
 
+func TestParseArgsLogDebugLevel(t *testing.T) {
+	p := ParseArgs([]string{"-log", "DEBUG", "hello"})
+	if !p.Log {
+		t.Fatal("Log = false, want true")
+	}
+	if p.LogLevel != "DEBUG" {
+		t.Fatalf("LogLevel = %q, want %q", p.LogLevel, "DEBUG")
+	}
+	if p.Prompt != "hello" {
+		t.Fatalf("prompt = %q, want %q", p.Prompt, "hello")
+	}
+}
+
 func TestParseArgsAgent(t *testing.T) {
 	p := ParseArgs([]string{"--agent", "./reviewer.md", "review code"})
 	if p.AgentPath != "./reviewer.md" {

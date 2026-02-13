@@ -96,7 +96,7 @@ func TestRunStreamsToConsole(t *testing.T) {
 	sink.Close()
 
 	out := buf.String()
-	if !strings.Contains(out, "[AI] Hello") || !strings.Contains(out, "[AI]  world") {
+	if !strings.Contains(out, "[AI] Hello world") {
 		t.Fatalf("expected streamed AI output, got %q", out)
 	}
 }

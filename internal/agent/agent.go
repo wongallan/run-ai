@@ -47,9 +47,7 @@ func ParseFile(path string) (Agent, error) {
 // Parse reads agent file content and returns the parsed agent.
 func Parse(content string) (Agent, error) {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
-	if strings.HasPrefix(content, "\ufeff") {
-		content = strings.TrimPrefix(content, "\ufeff")
-	}
+	content = strings.TrimPrefix(content, "\ufeff")
 
 	if !strings.HasPrefix(content, "---\n") && content != "---" && !strings.HasPrefix(content, "---\r\n") {
 		return Agent{

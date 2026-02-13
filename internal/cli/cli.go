@@ -29,6 +29,7 @@ type Parsed struct {
 	AgentPath  string   // --agent flag
 	Silent     bool     // -silent flag
 	Log        bool     // -log flag
+	LogLevel   string   // optional: when -log is followed by a level (e.g. DEBUG)
 	ShowHelp   bool     // -h / --help / help
 }
 
@@ -46,6 +47,11 @@ func ParseArgs(args []string) Parsed {
 			p.Silent = true
 		case "-log":
 			p.Log = true
+			// Support `-log DEBUG` without changing the existing `-log <prompt>` behavior.
+			if i+1 < len(args) && strings.EqualFold(args[i+1], "DEBUG") {
+				p.LogLevel = "DEBUG"
+				i++
+			}
 		case "--prompt-file":
 			if i+1 < len(args) {
 				i++
@@ -171,6 +177,9 @@ func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
 	if p.Log {
 		headerArgs["log"] = "true"
 	}
+	if p.LogLevel != "" {
+		headerArgs["log-level"] = p.LogLevel
+	}
 
 	sink.WriteHeader(headerArgs, ag.SystemPrompt, p.Prompt)
 
@@ -185,6 +194,15 @@ func runPrompt(p Parsed, stdout, stderr io.Writer, baseDir string) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "config error: %v\n", err)
 		return 1
+	}
+
+	// Internal-only debug hooks: allow providers to append raw HTTP JSON bodies
+	// to the active session log when `-log DEBUG` is used.
+	if strings.EqualFold(p.LogLevel, "DEBUG") {
+		if lp := sink.LogPath(); lp != "" {
+			merged["_log_level"] = "DEBUG"
+			merged["_log_path"] = lp
+		}
 	}
 
 	// Load stored Copilot token when provider is github-copilot and no key yet.

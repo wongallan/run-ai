@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -203,6 +205,65 @@ func TestOpenAIComplete(t *testing.T) {
 	}
 	if !strings.Contains(resp.ReasoningSummary, "Paris is the capital") {
 		t.Fatalf("expected reasoning summary, got %q", resp.ReasoningSummary)
+	}
+}
+
+func TestOpenAIComplete_AppendsHTTPDebugBodiesToLogFile(t *testing.T) {
+	tmp := t.TempDir()
+	logPath := filepath.Join(tmp, "rai.log")
+	if err := os.WriteFile(logPath, []byte("=== RAI Session Log ===\n"), 0o644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := openAIResponse{
+			ID: "resp-1",
+			Output: []openAIResponseOutput{{
+				Type: "message",
+				Content: []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				}{{Type: "text", Text: "ok"}},
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	p, err := Resolve(map[string]string{
+		"endpoint":   srv.URL,
+		"api-key":    "test-key",
+		"model":      "gpt-4",
+		"_log_level": "DEBUG",
+		"_log_path":  logPath,
+	})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	_, err = p.Complete(context.Background(), Request{
+		Messages: []Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	log := string(data)
+	if !strings.Contains(log, "--- DEBUG provider request ---") {
+		t.Fatalf("missing request marker in log:\n%s", log)
+	}
+	if !strings.Contains(log, "--- DEBUG provider response ---") {
+		t.Fatalf("missing response marker in log:\n%s", log)
+	}
+	if !strings.Contains(log, `"model"`) {
+		t.Fatalf("missing request json in log:\n%s", log)
+	}
+	if !strings.Contains(log, `"output"`) {
+		t.Fatalf("missing response json in log:\n%s", log)
 	}
 }
 
@@ -702,6 +763,7 @@ func TestCopilotChatComplete(t *testing.T) {
 				Message: struct {
 					Role      string `json:"role"`
 					Content   string `json:"content"`
+					Reasoning string `json:"reasoning_text"`
 					ToolCalls []struct {
 						ID       string `json:"id"`
 						Type     string `json:"type"`
@@ -711,8 +773,9 @@ func TestCopilotChatComplete(t *testing.T) {
 						} `json:"function"`
 					} `json:"tool_calls"`
 				}{
-					Role:    "assistant",
-					Content: "Hello from Copilot!",
+					Role:      "assistant",
+					Content:   "Hello from Copilot!",
+					Reasoning: "",
 				},
 				FinishReason: "stop",
 			}},

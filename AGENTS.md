@@ -11,7 +11,7 @@ Minimal steps to build and run the project locally.
 Run these to get immediate feedback after changes.
 
 - **Tests:**: `go test ./...`
-- **Typecheck:**: `go vet ./...` (or `staticcheck` if available)
+- **Typecheck:**: `go vet ./...` (or `staticcheck ./...` if available)
 - **Lint:**: `golangci-lint run` (if configured)
 
 ## Operational Notes

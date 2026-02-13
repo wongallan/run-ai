@@ -96,6 +96,8 @@ Note: Known keys list is limited; warn on unknown keys.
 - [x] Green: CLI flag parsing for `-silent`, `-log`, `--agent`, `help`.
 - [x] Green: log file naming format `rai-log-YYYYMMDD.HHMMSS.log`.
 - [x] Green: log header with session metadata (args, agent, prompt, timestamps).
+- [x] Red: `-log DEBUG` appends full JSON provider request/response bodies to the session log file.
+- [x] Green: `-log` keeps existing behavior, while `-log DEBUG` enables provider HTTP debug logging.
 - [ ] Red: streaming events are emitted to console/log in real-time (no end-only buffering).
 - [ ] Green: runner streams AI text as it arrives and only prints final response in silent mode.
 - [ ] Red: terminal tool calls emit command + output events in order.

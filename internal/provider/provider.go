@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 )
 
@@ -122,22 +123,25 @@ func Resolve(cfg map[string]string) (Provider, error) {
 		return newGoogleProvider(endpoint, apiKey, model, cfg)
 	default:
 		// Default to OpenAI-compatible (Responses API).
-		return newOpenAIProvider(endpoint, apiKey, model, reasoningSummary)
+		return newOpenAIProvider(endpoint, apiKey, model, reasoningSummary, cfg)
 	}
 }
 
 // newOpenAIProvider creates an OpenAI-compatible provider stub.
-func newOpenAIProvider(endpoint, apiKey, model, reasoningSummary string) (Provider, error) {
+func newOpenAIProvider(endpoint, apiKey, model, reasoningSummary string, cfg map[string]string) (Provider, error) {
 	if apiKey == "" {
 		return nil, ErrAuthRequired
 	}
 	if model == "" {
 		return nil, ErrModelRequired
 	}
+	client := http.Client{}
+	maybeEnableHTTPDebug(&client, cfg, "openai")
 	return &openAIProvider{
 		endpoint:         endpoint,
 		apiKey:           apiKey,
 		model:            model,
+		client:           client,
 		reasoningSummary: reasoningSummary,
 	}, nil
 }
@@ -150,10 +154,13 @@ func newAnthropicProvider(endpoint, apiKey, model string, cfg map[string]string)
 	if model == "" {
 		return nil, ErrModelRequired
 	}
+	client := http.Client{}
+	maybeEnableHTTPDebug(&client, cfg, "anthropic")
 	return &anthropicProvider{
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,
+		client:   client,
 	}, nil
 }
 
@@ -165,10 +172,13 @@ func newGoogleProvider(endpoint, apiKey, model string, cfg map[string]string) (P
 	if model == "" {
 		return nil, ErrModelRequired
 	}
+	client := http.Client{}
+	maybeEnableHTTPDebug(&client, cfg, "google")
 	return &googleProvider{
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,
+		client:   client,
 	}, nil
 }
 
@@ -202,11 +212,14 @@ func newCopilotProvider(cfg map[string]string, providerID string) (Provider, err
 	reasoningSummary := reasoningSummarySetting(cfg)
 
 	baseURL := CopilotBaseURL(enterpriseURL)
+	client := http.Client{}
+	maybeEnableHTTPDebug(&client, cfg, "github-copilot")
 
 	return &copilotProvider{
 		baseURL:          baseURL,
 		token:            token,
 		model:            model,
+		client:           client,
 		reasoningSummary: reasoningSummary,
 	}, nil
 }
